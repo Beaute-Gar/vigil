@@ -14,6 +14,8 @@ const EVENT_TONE: Record<string, string> = {
   'appeal.denied': 'text-rose-300 ring-rose-500/30 bg-rose-500/15',
   'rule.enabled': 'text-amber-300 ring-amber-500/30 bg-amber-500/15',
   'rule.disabled': 'text-amber-300 ring-amber-500/30 bg-amber-500/15',
+  'rule.created': 'text-teal-300 ring-teal-500/30 bg-teal-500/15',
+  'rule.updated': 'text-teal-300 ring-teal-500/30 bg-teal-500/15',
 };
 
 const DEFAULT_TONE = 'text-[var(--text-muted)] ring-[var(--border-strong)] bg-white/[0.03]';
@@ -41,6 +43,17 @@ function describeDetails(details: Record<string, unknown>): string[] {
 
   const rule = formatDetail(details.rule);
   if (rule) parts.push(`règle « ${rule} »`);
+
+  // Écrit en clair au moment de la mutation (repository.ts) : le journal
+  // ne dépend d'aucune table de traduction pour rester lisible.
+  const changed = Array.isArray(details.changed)
+    ? details.changed.map((c) => formatDetail(c)).filter((c): c is string => Boolean(c))
+    : [];
+  if (changed.length > 0) parts.push(`champ${changed.length > 1 ? 's' : ''} ${changed.join(', ')}`);
+
+  // Inutile si « priorité » figure déjà dans les champs modifiés.
+  const priority = typeof details.priority === 'number' ? details.priority : null;
+  if (priority !== null && !changed.includes('priorité')) parts.push(`priorité ${priority}`);
 
   const action = formatDetail(details.action);
   const severity = formatDetail(details.severity);

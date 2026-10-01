@@ -29,6 +29,7 @@ import {
   resolveIncidentState,
   type TransitionReason,
 } from '@/lib/moderation';
+import type { RuleValues } from '@/lib/rule-validation';
 
 /* ── Règles ───────────────────────────────────────────────────────── */
 
@@ -54,6 +55,137 @@ export function toRuleLike(rule: Rule): RuleLike {
     priority: rule.priority,
     enabled: rule.enabled,
   };
+}
+
+/**
+ * Libellés français des champs modifiables, écrits **dans** la ligne de
+ * journal au moment de la mutation.
+ *
+ * Un journal append-only doit rester lisible sans dépendre d'une table de
+ * traduction qui, elle, peut changer demain : on stocke le sens, pas la clé.
+ */
+const RULE_FIELD_LABELS: Record<keyof RuleValues, string> = {
+  name: 'nom',
+  description: 'description',
+  pattern: 'expression',
+  severity: 'sévérité',
+  action: 'action',
+  priority: 'priorité',
+  enabled: 'état',
+};
+
+export type RuleActor = { id: string; email: string };
+
+export type CreateRuleOutcome =
+  | { ok: true; rule: Rule }
+  /** Deux règles homonymes rendraient le journal ambigu à la lecture. */
+  | { ok: false; reason: 'duplicate-name' };
+
+export async function createRule(
+  db: Db,
+  input: { workspaceId: string; value: RuleValues; actor: RuleActor },
+): Promise<CreateRuleOutcome> {
+  const [taken] = await db
+    .select({ name: rules.name })
+    .from(rules)
+    // Borné à l'espace : deux espaces peuvent légitimement partager un
+    // nom de règle, l'ambiguïté n'existe qu'à l'intérieur d'un même journal.
+    .where(and(eq(rules.workspaceId, input.workspaceId), eq(rules.name, input.value.name)))
+    .limit(1);
+
+  if (taken) return { ok: false, reason: 'duplicate-name' };
+
+  const [created] = await db
+    .insert(rules)
+    .values({ workspaceId: input.workspaceId, ...input.value })
+    .returning();
+
+  await appendAudit(db, {
+    workspaceId: input.workspaceId,
+    event: 'rule.created',
+    details: {
+      ruleId: created.id,
+      rule: created.name,
+      priority: created.priority,
+      severity: created.severity,
+      action: created.action,
+      by: input.actor.email,
+    },
+  });
+
+  return { ok: true, rule: created };
+}
+
+export type UpdateRuleOutcome = { ok: true; rule: Rule } | { ok: false };
+
+/**
+ * Met à jour une règle — et n'écrit que ce qui change réellement.
+ *
+ * Deux conséquences, voulues :
+ *  - un PATCH `{ enabled: true }` sur une règle déjà active ne produit
+ *    ni UPDATE ni ligne de journal : le journal raconte des changements,
+ *    pas des requêtes ;
+ *  - l'activation reste un événement distinct (`rule.enabled` /
+ *    `rule.disabled`) plutôt que d'être absorbé par `rule.updated` : c'est
+ *    le signal que la console affiche depuis le début, on ne le renomme pas.
+ */
+export async function updateRule(
+  db: Db,
+  input: { ruleId: string; value: Partial<RuleValues>; actor: RuleActor },
+): Promise<UpdateRuleOutcome> {
+  const before = await getRule(db, input.ruleId);
+  if (!before) return { ok: false };
+
+  const next = {} as Partial<RuleValues>;
+  const changed: (keyof RuleValues)[] = [];
+
+  for (const key of Object.keys(input.value) as (keyof RuleValues)[]) {
+    const value = input.value[key];
+    if (value === undefined || before[key] === value) continue;
+    Object.assign(next, { [key]: value });
+    changed.push(key);
+  }
+
+  if (changed.length === 0) return { ok: true, rule: before };
+
+  const [updated] = await db
+    .update(rules)
+    .set(next)
+    .where(eq(rules.id, input.ruleId))
+    .returning();
+
+  if (changed.includes('enabled')) {
+    await appendAudit(db, {
+      workspaceId: before.workspaceId,
+      event: before.enabled ? 'rule.disabled' : 'rule.enabled',
+      details: {
+        ruleId: before.id,
+        rule: before.name,
+        priority: before.priority,
+        severity: before.severity,
+        by: input.actor.email,
+      },
+    });
+  }
+
+  const definition = changed.filter((key) => key !== 'enabled');
+  if (definition.length > 0) {
+    await appendAudit(db, {
+      workspaceId: before.workspaceId,
+      event: 'rule.updated',
+      details: {
+        ruleId: before.id,
+        rule: updated.name,
+        priority: updated.priority,
+        severity: updated.severity,
+        action: updated.action,
+        changed: definition.map((key) => RULE_FIELD_LABELS[key]),
+        by: input.actor.email,
+      },
+    });
+  }
+
+  return { ok: true, rule: updated };
 }
 
 /* ── Détection → incident + audit ─────────────────────────────────── */

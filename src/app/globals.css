@@ -191,6 +191,29 @@ select.input {
   padding: 0.55rem 0.7rem;
 }
 
+/* ── Dialogue modal (formulaire de règle) ─────────────────────────── */
+
+/* Le <dialog> natif donne gratuitement le piège de focus, Échap et
+   l'inertie du fond : on n'en réécrit que l'habillage. */
+.rule-dialog {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0;
+  width: min(46rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  box-shadow: 0 32px 70px -30px rgba(0, 0, 0, 0.95);
+}
+
+.rule-dialog::backdrop {
+  background: rgba(3, 6, 8, 0.75);
+  backdrop-filter: blur(3px);
+}
+
+.rule-dialog-body { padding: 1.4rem 1.4rem 1.3rem; }
+
 /* ── Badges ──────────────────────────────────────────────────────── */
 
 .badge {

@@ -96,6 +96,41 @@ export function isKnownSeverity(v: string): v is Severity {
   return (SEVERITIES as readonly string[]).includes(v);
 }
 
+/* ── Invariant de modèle : sévérité ↔ action ──────────────────────── */
+
+/** Rang coercitif d'une action : plus haut = plus interventionniste. */
+export const ACTION_RANK: Record<Action, number> = {
+  flag: 0,
+  warn: 1,
+  mute: 2,
+  remove: 3,
+  escalate: 4,
+};
+
+/**
+ * Action minimale admise pour chaque sévérité.
+ *
+ * Le moteur décide par sévérité maximale, puis retient l'action de
+ * *cette* règle-là. Une règle `critical` associée à `flag` serait donc
+ * le point de décision le plus grave du système… qui ne ferait rien.
+ *
+ * D'où un **plancher** : on échoue du côté sûr jusque dans l'écriture.
+ * Ce n'est pas une correspondance unique — `critical` admet `remove`
+ * *et* `escalate` (Menaces → remove, Hameçonnage → escalate en base),
+ * car supprimer un contenu et le porter à un humain sont deux réponses
+ * légitimes, pas deux degrés d'une même échelle.
+ */
+export const SEVERITY_FLOOR: Record<Severity, Action> = {
+  low: 'flag',
+  medium: 'warn',
+  high: 'mute',
+  critical: 'remove',
+};
+
+export function actionMeetsFloor(severity: Severity, action: Action): boolean {
+  return ACTION_RANK[action] >= ACTION_RANK[SEVERITY_FLOOR[severity]];
+}
+
 /* ── Compilation & extraction ─────────────────────────────────────── */
 
 /**

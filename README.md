@@ -7,7 +7,7 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Drizzle-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-61%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-84%20passed-brightgreen)
 
 **Live · English below · [Version française](#version-française)**
 
@@ -23,7 +23,7 @@ Moderation tooling usually answers *"was it flagged?"* and nothing else. That is
 
 Vigil is built around the opposite: **every verdict is explainable, every state change is recorded, and nothing can be un-written.**
 
-### Four design decisions that carry the whole product
+### Five design decisions that carry the whole product
 
 | # | Decision | Why it matters |
 |---|---|---|
@@ -31,8 +31,11 @@ Vigil is built around the opposite: **every verdict is explainable, every state 
 | 2 | **All rules are evaluated**, not just the first match | You can answer *"why was this flagged?"* with the full set of matches, not a mute verdict. |
 | 3 | **The highest-severity action wins**, never the first match | First-match-wins is dangerous: a `flag` rule at priority 1 could mask a `remove` threat rule at priority 9. The system fails safe. |
 | 4 | **A broken rule never breaks the chain** | An invalid regex is isolated and reported in `invalidRules`, never thrown. A broken rule should be *seen* — it should not stop moderation. |
+| 5 | **A severity/action floor, enforced on write** | Decision 3 keeps the *most severe* rule's action. So a `critical` rule paired with `flag` would be the system's most important decision — doing nothing. The write path refuses that pair, and the form shows it before you submit. |
 
 Presentation order stays the priority order; **decision** order is severity. Both are defensible in a review.
+
+Rules are **edited, never deleted**: incidents store a `rule_id`, and `ON DELETE SET NULL` would silently turn a flagged message into "flagged by nobody". Deactivating a rule keeps the explanation intact.
 
 ---
 
@@ -40,6 +43,7 @@ Presentation order stays the priority order; **decision** order is severity. Bot
 
 **Moderation**
 - Ordered rules with priority, severity, action, and a per-rule on/off switch
+- **Create and edit rules in the console** — with live feedback: the regex is compiled as you type, the severity/action floor is checked before submit, and the preview runs the *actual* rules engine against a sample message
 - Detection endpoint returning the full evaluation (deciding rule, all matches, broken rules)
 - Incident lifecycle guarded by an explicit state machine — a resolved incident **cannot** be silently reopened
 - Appeal queue: only a *dismissed* incident can be appealed, motivation is mandatory, and a judged appeal is final
@@ -47,7 +51,7 @@ Presentation order stays the priority order; **decision** order is severity. Bot
 
 **Audit**
 - `audit_log` is **append-only**. No query in this repository updates or deletes it — verifiable by reading the code.
-- Every decision, incident creation, and rule toggle writes exactly one entry.
+- Every decision, incident creation, rule toggle, and rule edit writes exactly one entry.
 - Timestamps are server-side, actors are linked, notes are preserved.
 
 **Accounts**
@@ -68,7 +72,7 @@ Presentation order stays the priority order; **decision** order is severity. Bot
 | Database | **PostgreSQL** via Drizzle ORM | Real relational schema, versioned migrations |
 | Local / CI | **PGlite** (PostgreSQL compiled to WASM) | The same Postgres engine locally and in CI, zero services to install |
 | Validation | Zod | One place for request shapes, output types follow |
-| Tests | Vitest — **61 tests** | Unit + integration against a real Postgres |
+| Tests | Vitest — **84 tests** | Unit + integration against a real Postgres |
 | CI | GitHub Actions | typecheck → lint → test → build |
 
 ---
@@ -112,10 +116,10 @@ src/
 │   ├── dashboard/                  Guarded console
 │   │   ├── page.tsx                KPIs + message simulator
 │   │   ├── incidents/              List + detail with decisions
-│   │   ├── rules/                  Ordered rules, on/off switches
+│   │   ├── rules/                  Ordered rules — create, edit, reorder, on/off
 │   │   ├── appeals/                Appeal queue
 │   │   └── audit/                  Append-only journal
-│   └── api/                        REST endpoints (8)
+│   └── api/                        REST endpoints (9)
 ├── components/                     UI, all client islands isolated
 ├── db/
 │   ├── schema.ts                   8 tables + domain types
@@ -124,11 +128,14 @@ src/
     ├── rules.ts        ★ the rules engine — pure, no I/O
     ├── moderation.ts   ★ state machines + KPIs — pure, no I/O
     ├── auth.ts         ★ scrypt + sessions — pure, no I/O
+    ├── rule-validation.ts  Write-time guards: compilable regex + severity floor
     ├── repository.ts   All reads/writes; the only audit writer
     └── session.ts      Cookie ↔ database bridge
 ```
 
 ★ The three starred modules have **no dependency on Drizzle, Next, or the filesystem.** That is why they are tested exhaustively without infrastructure.
+
+`rule-validation.ts` and the engine deliberately disagree about invalid input, and that is the design: the engine **isolates** a broken regex (it may already be in the database), while the write path **refuses** one (it should never get there).
 
 ---
 
@@ -143,17 +150,21 @@ src/
 | `PATCH` | `/api/incidents/:id` | Dismiss or confirm (state-machine guarded) |
 | `POST` | `/api/appeals` | Open an appeal (dismissed incidents only) |
 | `PATCH` | `/api/appeals/:id` | Judge an appeal (motivation required) |
-| `PATCH` | `/api/rules/:id` | Enable / disable a rule (audited) |
+| `POST` | `/api/rules` | Create a rule (regex + severity floor enforced) |
+| `PATCH` | `/api/rules/:id` | Edit a rule, or toggle it (audited) |
 
-Every mutation endpoint validates with Zod and answers with a precise status: `409` for an illegal transition, `404` for a missing record, `422` for invalid input, `401` when unauthenticated.
+Every mutation endpoint validates with Zod and answers with a precise status: `409` for an illegal transition or a duplicate rule name, `404` for a missing record, `422` for invalid input, `401` when unauthenticated.
+
+`PATCH /api/rules/:id` validates in **two passes**: the fragment on its own, then the *merged* rule. Without the second pass, moving a rule from `low` to `critical` while leaving its action at `flag` would be accepted — the most dangerous rule in the system would silently do nothing.
 
 ---
 
 ## Testing
 
-**61 tests, 4 files.**
+**84 tests, 5 files.**
 
-- `rules.test.ts` — priority ordering, multi-match evaluation, severity-based decision, disabled rules, invalid regex isolation, zero-width regex infinite-loop guard, case-insensitivity
+- `rules.test.ts` (engine) — priority ordering, multi-match evaluation, severity-based decision, disabled rules, invalid regex isolation, zero-width regex infinite-loop guard, case-insensitivity
+- `rule-editing.test.ts` — the write path: severity/action floor (all four severities), compilable-regex rejection, per-field French errors, and on real Postgres that a rule edit writes **exactly one** audit entry — or none at all when nothing changed
 - `moderation.test.ts` — the full transition table (every from/to pair, legal and illegal), appeal states, KPI arithmetic including the divide-by-zero case
 - `auth.test.ts` — hash format, salt uniqueness, constant-time verification, corrupted-hash handling, Unicode NFKC normalisation, session token shape
 - `repository.test.ts` — **integration on real PostgreSQL**: migrations apply, unique constraints hold at the database level, detection writes incident *and* audit entry, refused transitions leave the row untouched
@@ -173,7 +184,10 @@ Exercised end-to-end against the running application:
 - Decision → badge, audit entry, and resolved metadata all update
 - Appeal → created, judged, audited
 - Rule toggle → persisted, audited as `rule.enabled`
-- **8 guard rails**: double resolution `409`, reopen attempt `409`, missing incident `404`, duplicate appeal `409`, appeal on an open incident `409`, short motivation `422`, duplicate email `409`, weak password `422`
+- Rule creation → `201`, audited as `rule.created`, appearing at the right position in the priority order
+- Rule edit → `200`, audited as `rule.updated` with **only the fields that actually changed** (`champs sévérité, action, priorité`); a no-op `PATCH` writes nothing at all
+- Rule form → live regex compilation, severity floor blocking submit, and a preview that runs the real engine against a sample message
+- **15 guard rails**: double resolution `409`, reopen attempt `409`, missing incident `404`, duplicate appeal `409`, appeal on an open incident `409`, short motivation `422`, duplicate email `409`, weak password `422`, action below the severity floor `422`, uncompilable regex `422`, priority out of bounds `422`, duplicate rule name `409`, empty `PATCH` `422`, merged rule below the floor `422`, unknown rule `404`
 
 ---
 
@@ -230,7 +244,7 @@ Honest scope notes:
 - **Storage is PGlite-backed.** The schema is standard PostgreSQL and the SQL is portable, but the app opens PGlite directly — there is no `DATABASE_URL` branch yet. Pointing it at Neon / Vercel Postgres is the next piece of work, not a config switch.
 - **The database is file-backed on local disk.** It is not suitable for serverless/edge runtimes as-is; the Node.js runtime is declared on every route for that reason.
 - **Single-workspace reads.** Registration creates a workspace, but the console currently resolves the shared demo workspace. Multi-tenancy by membership is the next step.
-- **Rule editing is a toggle.** Creating and re-prioritising rules needs a `POST`/`PATCH` form.
+- **No drag-and-drop reordering.** Priority is a plain integer you type; there is no sortable list. The evaluation order stays explicit either way, so this is a ergonomics gap rather than a correctness one.
 - **No rate limiting** on auth endpoints — add it before any real deployment.
 - **Playwright e2e** is not wired up yet; the interaction checks above were run manually.
 
@@ -242,12 +256,15 @@ Honest scope notes:
 
 Le problème : un outil de modération répond « a-t-il été signalé ? » mais ne peut pas dire *quelle règle, dans quel ordre, et pourquoi*. Pire, l'historique disparaît quand un modérateur change d'avis.
 
-Quatre décisions portent le produit :
+Cinq décisions portent le produit :
 
 1. **Priorité croissante** — l'ordre est le contrat.
 2. **Toutes les règles sont évaluées**, pas seulement la première qui matche.
 3. **La sévérité maximale décide**, jamais le premier match : on échoue du côté sûr.
 4. **Une regex cassée n'interrompt jamais la chaîne** — elle est isolée et remontée.
+5. **Un plancher sévérité → action, appliqué à l'écriture** : une règle `critical` associée à `flag` serait la décision la plus grave du système… qui ne ferait rien. Le serveur la refuse, et le formulaire l'indique avant l'envoi.
+
+Les règles se **modifient, elles ne se suppriment pas** : les incidents conservent un `rule_id`, et `ON DELETE SET NULL` transformerait silencieusement un message signalé en « signalé par personne ».
 
 Le journal `audit_log` est **en écriture seule** : aucune requête du projet ne le met à jour ni ne le supprime. Un incident tranché ne se rouvre pas silencieusement — cela passe par un appel motivé et tranché.
 

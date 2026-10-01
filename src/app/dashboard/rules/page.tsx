@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getDb } from '@/db';
 import { ActionBadge, SeverityBadge } from '@/components/badges';
+import { RuleFormButton } from '@/components/rule-form';
 import { RuleToggle } from '@/components/rule-toggle';
 import { EmptyState, Note, PageHeader } from '@/components/ui';
 import { getOrCreateWorkspace, listRules } from '@/lib/repository';
@@ -20,6 +21,7 @@ export default async function RulesPage() {
       <PageHeader
         title="Règles de modération"
         description={`Ordre d’évaluation explicite : ${rules.length} règle${rules.length > 1 ? 's' : ''}, ${activeCount} active${activeCount > 1 ? 's' : ''}. La priorité décide de l’ordre, la sévérité décide de l’action.`}
+        action={<RuleFormButton mode="create" label="Nouvelle règle" className="btn btn-primary btn-sm" />}
       />
 
       {/* ── Rappel du contrat ───────────────────────────────────── */}
@@ -45,11 +47,12 @@ export default async function RulesPage() {
         <EmptyState
           title="Aucune règle"
           description="L'espace de travail ne contient encore aucune règle : rien ne sera signalé."
+          action={<RuleFormButton mode="create" label="Créer la première règle" />}
         />
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[50rem]">
+            <table className="w-full text-left border-collapse min-w-[58rem]">
               <thead>
                 <tr className="border-b border-[var(--border)]">
                   <th scope="col" className="label px-4 py-3 font-medium w-20">Priorité</th>
@@ -57,7 +60,7 @@ export default async function RulesPage() {
                   <th scope="col" className="label px-4 py-3 font-medium">Expression</th>
                   <th scope="col" className="label px-4 py-3 font-medium">Sévérité</th>
                   <th scope="col" className="label px-4 py-3 font-medium">Action</th>
-                  <th scope="col" className="label px-4 py-3 font-medium text-right">État</th>
+                  <th scope="col" className="label px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -98,8 +101,11 @@ export default async function RulesPage() {
                     <td className="px-4 py-4">
                       <ActionBadge action={r.action} />
                     </td>
-                    <td className="px-4 py-4 text-right">
-                      <RuleToggle ruleId={r.id} enabled={r.enabled} name={r.name} />
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-end gap-3">
+                        <RuleFormButton mode="edit" rule={r} label="Modifier" />
+                        <RuleToggle ruleId={r.id} enabled={r.enabled} name={r.name} />
+                      </div>
                     </td>
                   </tr>
                 ))}

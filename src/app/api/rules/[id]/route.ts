@@ -1,19 +1,26 @@
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
-import { z } from 'zod';
 import { getDb } from '@/db';
-import { rules } from '@/db/schema';
-import { appendAudit } from '@/lib/repository';
+import { getRule, updateRule } from '@/lib/repository';
+import { validateRule, validateRulePatch } from '@/lib/rule-validation';
 import { getCurrentUser } from '@/lib/session';
 
 export const runtime = 'nodejs';
 
 export const dynamic = 'force-dynamic';
 
-const Body = z.object({
-  enabled: z.boolean(),
-});
-
+/**
+ * Mise à jour d'une règle — du simple `{ enabled }` du bouton de bascule
+ * jusqu'à la réécriture complète du formulaire.
+ *
+ * La validation se fait en DEUX temps, et l'ordre compte :
+ *
+ *   1. `validateRulePatch`   → le fragment est-il bien formé ?
+ *   2. `validateRule`        → la règle *résultante* est-elle cohérente ?
+ *
+ * Sans la deuxième, passer une règle de `low` à `critical` en laissant
+ * l'action à `flag` serait accepté : le point de décision le plus grave
+ * du système ne ferait rien. C'est exactement ce que le plancher interdit.
+ */
 export async function PATCH(
   request: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -32,44 +39,39 @@ export async function PATCH(
     return NextResponse.json({ error: 'Corps JSON invalide.' }, { status: 400 });
   }
 
-  const parsed = Body.safeParse(body);
-  if (!parsed.success) {
+  const patch = validateRulePatch(body);
+  if (!patch.ok) {
+    return NextResponse.json({ errors: patch.errors }, { status: 422 });
+  }
+
+  if (Object.keys(patch.value).length === 0) {
     return NextResponse.json(
-      { errors: { form: 'Valeur invalide.' } },
+      { errors: { form: 'Aucun champ à modifier.' } },
       { status: 422 },
     );
   }
 
   const db = await getDb();
 
-  const [rule] = await db.select().from(rules).where(eq(rules.id, id)).limit(1);
-  if (!rule) {
+  const before = await getRule(db, id);
+  if (!before) {
     return NextResponse.json({ errors: { form: 'Règle introuvable.' } }, { status: 404 });
   }
 
-  if (rule.enabled === parsed.data.enabled) {
-    return NextResponse.json({ rule });
+  const merged = validateRule({ ...before, ...patch.value });
+  if (!merged.ok) {
+    return NextResponse.json({ errors: merged.errors }, { status: 422 });
   }
 
-  const [updated] = await db
-    .update(rules)
-    .set({ enabled: parsed.data.enabled })
-    .where(eq(rules.id, id))
-    .returning();
-
-  // Activer ou désactiver une règle change le comportement de la
-  // modération : cela fait partie de l'historique, donc c'est journalisé.
-  await appendAudit(db, {
-    workspaceId: rule.workspaceId,
-    event: parsed.data.enabled ? 'rule.enabled' : 'rule.disabled',
-    details: {
-      ruleId: rule.id,
-      rule: rule.name,
-      priority: rule.priority,
-      severity: rule.severity,
-      by: user.email,
-    },
+  const outcome = await updateRule(db, {
+    ruleId: id,
+    value: patch.value,
+    actor: { id: user.id, email: user.email },
   });
 
-  return NextResponse.json({ rule: updated });
+  if (!outcome.ok) {
+    return NextResponse.json({ errors: { form: 'Règle introuvable.' } }, { status: 404 });
+  }
+
+  return NextResponse.json({ rule: outcome.rule });
 }
