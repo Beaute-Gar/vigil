@@ -203,6 +203,14 @@ export type DetectResult = {
   clean: boolean;
   invalidRules: { id: string; name: string; reason: string }[];
   matchedRuleIds: string[];
+  /**
+   * La règle qui a décidé — nom compris.
+   *
+   * L'incident ne porte que `ruleId` : un appelant machine (le bot) qui
+   * veut afficher « règle *Liens raccourcis* » devrait faire un aller-retour
+   * pour lire un nom. On le renvoie ici, à la source.
+   */
+  decidedBy: { id: string; name: string; priority: number } | null;
 };
 
 /**
@@ -222,7 +230,13 @@ export async function detect(db: Db, input: DetectInput): Promise<DetectResult> 
   const invalidRules = evaluation.invalidRules;
 
   if (!evaluation.decidedBy || !evaluation.severity || !evaluation.action) {
-    return { created: null, clean: true, invalidRules, matchedRuleIds: [] };
+    return {
+      created: null,
+      clean: true,
+      invalidRules,
+      matchedRuleIds: [],
+      decidedBy: null,
+    };
   }
 
   const [incident] = await db
@@ -262,6 +276,11 @@ export async function detect(db: Db, input: DetectInput): Promise<DetectResult> 
     clean: false,
     invalidRules,
     matchedRuleIds: evaluation.matches.map((m) => m.rule.id),
+    decidedBy: {
+      id: evaluation.decidedBy.id,
+      name: evaluation.decidedBy.name,
+      priority: evaluation.decidedBy.priority,
+    },
   };
 }
 

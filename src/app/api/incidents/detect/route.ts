@@ -62,6 +62,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({
       clean: true,
       incident: null,
+      rule: null,
+      severity: null,
+      action: null,
       invalidRules: result.invalidRules,
     });
   }
@@ -69,6 +72,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   return NextResponse.json({
     clean: false,
     incident: result.created,
+    // Récupérables depuis `incident`, mais remontés tels quels : un appelant
+    // machine (le bot) n'a pas à reconstruire le verdict depuis la ligne.
+    rule: result.decidedBy,
+    severity: result.created?.severity ?? null,
+    action: result.created?.actionTaken ?? null,
     matchedRuleIds: result.matchedRuleIds,
     invalidRules: result.invalidRules,
   });
