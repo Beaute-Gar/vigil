@@ -1,0 +1,12 @@
+# Normalise en LF dans le dépôt : CI sous Linux, développeurs sous
+# Windows/macOS. Sans cela, Git produit des diffs de fins de ligne.
+* text=auto eol=lf
+
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.ico  binary
+*.woff2 binary
+
+# Les bases locales ne doivent jamais être normalisées (binaire)
+.data/** binary
