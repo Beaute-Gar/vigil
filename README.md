@@ -66,7 +66,7 @@ Presentation order stays the priority order; **decision** order is severity. Bot
 | Interface | Next.js 16 (App Router), React 19, TypeScript strict | What Canadian teams ship with daily |
 | Styling | Tailwind CSS v4 + a hand-written design system | One accent, severity carried by colour, not decoration |
 | Database | **PostgreSQL** via Drizzle ORM | Real relational schema, versioned migrations |
-| Local / CI | **PGlite** (PostgreSQL compiled to WASM) | Zero services to install; production swaps to Neon / Vercel Postgres by URL only |
+| Local / CI | **PGlite** (PostgreSQL compiled to WASM) | The same Postgres engine locally and in CI, zero services to install |
 | Validation | Zod | One place for request shapes, output types follow |
 | Tests | Vitest — **61 tests** | Unit + integration against a real Postgres |
 | CI | GitHub Actions | typecheck → lint → test → build |
@@ -119,7 +119,7 @@ src/
 ├── components/                     UI, all client islands isolated
 ├── db/
 │   ├── schema.ts                   8 tables + domain types
-│   └── index.ts                    Connection + migration runner
+│   └── index.ts                    Connection (PGlite chargée à l'exécution)
 └── lib/
     ├── rules.ts        ★ the rules engine — pure, no I/O
     ├── moderation.ts   ★ state machines + KPIs — pure, no I/O
@@ -177,10 +177,58 @@ Exercised end-to-end against the running application:
 
 ---
 
+## Case study: a failure only production could show
+
+The most instructive bug in this repository. Worth reading if you have two minutes.
+
+**Symptom.** Every database query failed in `next dev` and `next start`:
+
+```
+TypeError: The "path" argument must be of type string or an instance of
+Buffer or URL. Received an instance of URL
+```
+
+Meanwhile `npm run db:migrate` and `npm run db:seed` — the *same* `createDb()` — worked perfectly. So the schema was fine, the data was fine, and plain Node was fine. Only Next.js failed, and it failed intermittently: the same server would return `200` on one request and `500` on the next.
+
+**Diagnosis.** Hiding behind Next's `at ignore-listed frames`, so the first step was a throwaway route that re-threw with `Error.stackTraceLimit = 200` and printed `error.cause.stack`:
+
+```
+at open (node:internal/fs/promises:1342:10)
+at Module.readFile (node:internal/fs/promises:1996:20)
+at Object.w (.next/server/chunks/ssr/node_modules_@electric-sql_pglite_dist_0j1fzsq._.js)
+```
+
+Two facts fell out of that line:
+
+1. `fs` was rejecting a value **it had been handed** — not a wrong path, a wrongly-*typed* one. Node accepts `string | Buffer | URL`, and the message says it received a `URL`. So the check that failed was `instanceof`: **two different `URL` classes**.
+2. The frame was inside a *Turbopack chunk*, not `node_modules`. PGlite was being bundled.
+
+**Root cause.** Turbopack resolved `@electric-sql/pglite` using the **browser** export conditions, so it compiled the Emscripten system bridge — which brings its own `URL` implementation. Node's `fs` compares against `globalThis.URL`, the bundled instance fails `instanceof`, and every file read throws. Because the failure depends on which chunk gets loaded first, it looked intermittent.
+
+`serverExternalPackages: ["@electric-sql/pglite"]` was already set and was **not sufficient** — worth knowing before trusting it.
+
+**Fix.** Load the package at runtime, where it cannot be rewritten:
+
+```ts
+// src/db/index.ts
+function loadPGlite(): PGliteCtor {
+  const requireFromModule = createRequire(import.meta.url);
+  return (requireFromModule('@electric-sql/pglite') as { PGlite: PGliteCtor }).PGlite;
+}
+```
+
+`createRequire` bypasses static analysis entirely: the package resolves from `node_modules` on first use, with the genuine Node implementation. Confirmed by a control script that ran the CJS build under bare `node` and worked every time.
+
+**What made this take longer than it should have:** three wrong hypotheses committed before the stack trace was extracted — a relative-path resolution bug, a concurrent file-lock, and a corrupted `.data` directory. All were plausible, all were wrong, and none of them survived one real stack trace.
+
+---
+
 ## Limitations & next steps
 
 Honest scope notes:
 
+- **Storage is PGlite-backed.** The schema is standard PostgreSQL and the SQL is portable, but the app opens PGlite directly — there is no `DATABASE_URL` branch yet. Pointing it at Neon / Vercel Postgres is the next piece of work, not a config switch.
+- **The database is file-backed on local disk.** It is not suitable for serverless/edge runtimes as-is; the Node.js runtime is declared on every route for that reason.
 - **Single-workspace reads.** Registration creates a workspace, but the console currently resolves the shared demo workspace. Multi-tenancy by membership is the next step.
 - **Rule editing is a toggle.** Creating and re-prioritising rules needs a `POST`/`PATCH` form.
 - **No rate limiting** on auth endpoints — add it before any real deployment.
@@ -204,6 +252,8 @@ Quatre décisions portent le produit :
 Le journal `audit_log` est **en écriture seule** : aucune requête du projet ne le met à jour ni ne le supprime. Un incident tranché ne se rouvre pas silencieusement — cela passe par un appel motivé et tranché.
 
 **Pile :** Next.js 16 · TypeScript strict · Tailwind v4 · PostgreSQL (Drizzle) · PGlite · Vitest · GitHub Actions.
+
+**Note d'ingénierie :** un défaut réel a été isolé en production uniquement — Turbopack empaquetait PGlite avec les conditions du navigateur, ce qui faisait échouer chaque requête sous Next.js alors que le même code tournait sous `tsx`. Diagnostic complet (et hypothèses ratées) dans la section [Case study](#case-study-a-failure-only-production-could-show).
 
 **Démonstration :** `demo@vigil.app` / `vigil-demo-2026`
 
