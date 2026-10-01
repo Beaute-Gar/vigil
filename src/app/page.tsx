@@ -31,7 +31,7 @@ const FEATURES = [
 
 const STACK = [
   { group: 'Interface', items: ['Next.js 16 (App Router)', 'React 19', 'TypeScript strict', 'Tailwind CSS v4'] },
-  { group: 'Données', items: ['PostgreSQL', 'Drizzle ORM', 'Migrations versionnées', 'PGlite en local'] },
+  { group: 'Données', items: ['PostgreSQL', 'Drizzle ORM', 'Migrations versionnées', 'PGlite en local', 'Postgres managé (DATABASE_URL)'] },
   { group: 'Confiance', items: ['scrypt (RFC 7914)', 'Sessions opaques hachées', 'Cookies HTTP-only', 'Journal immuable'] },
   { group: 'Qualité', items: ['Vitest — 61 tests', 'ESLint', 'Typecheck strict', 'GitHub Actions'] },
 ] as const;

@@ -1,0 +1,4 @@
+{
+  "buildCommand": "npm run db:migrate && next build",
+  "framework": "nextjs"
+}

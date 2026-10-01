@@ -9,7 +9,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { createDb, type Db } from '@/db';
+import { closeDb, createDb, rowsOf, type Db } from '@/db';
 import { appeals, auditLog, incidents, rules, users } from '@/db/schema';
 import {
   decideAppeal,
@@ -70,7 +70,7 @@ describe('migrations & schéma', () => {
     const res = await db.execute<{ table_name: string }>(
       `select table_name from information_schema.tables where table_schema = 'public' order by table_name`,
     );
-    const names = (res.rows ?? []).map((r) => r.table_name);
+    const names = rowsOf<{ table_name: string }>(res).map((r) => r.table_name);
     expect(names).toEqual(
       expect.arrayContaining([
         'users',
@@ -327,5 +327,31 @@ describe('listRules', () => {
     const list = await listRules(db, workspaceId);
     const priorities = list.map((r) => r.priority);
     expect([...priorities].sort((a, b) => a - b)).toEqual(priorities);
+  });
+});
+
+/**
+ * Verrouille la garantie centrale du branchement `DATABASE_URL`.
+ *
+ * Un test qui ouvrirait une connexion réseau échouerait ici : l'URL pointe
+ * vers un hôte qui n'existe pas. Si `createDb({ dir: null })` répond, c'est
+ * bien PGlite qui a servi — donc aucun test ne peut, même par accident,
+ * aller toucher une base distante.
+ */
+describe('choix du moteur', () => {
+  it('un `dir` explicite reste en PGlite, même avec DATABASE_URL renseigné', async () => {
+    const precedent = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = 'postgres://hote-qui-n-existe-pas:1/invalide';
+
+    let autre: Db | null = null;
+    try {
+      autre = await createDb({ dir: null });
+      const res = await autre.execute('select 1 as ok');
+      expect(rowsOf<{ ok: number }>(res)[0]?.ok).toBe(1);
+    } finally {
+      if (autre) await closeDb(autre);
+      if (precedent === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = precedent;
+    }
   });
 });

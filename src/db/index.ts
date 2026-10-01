@@ -1,12 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { drizzle } from 'drizzle-orm/pglite';
-import { migrate } from 'drizzle-orm/pglite/migrator';
+import postgres from 'postgres';
+import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
+import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
+import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js';
+import { migrate as migratePostgres } from 'drizzle-orm/postgres-js/migrator';
 import { schema } from './schema';
 import type { PGlite as PGliteInstance } from '@electric-sql/pglite';
 
-export type Db = ReturnType<typeof drizzle<typeof schema>>;
+/**
+ * Type de référence : le client de **production**.
+ *
+ * `postgres-js` et `pglite` construisent tous deux un `PgDatabase` et
+ * exposent la même API de requête — seul le client sous-jacent diffère.
+ * Typer sur le chemin déployé signifie que c'est *lui* que TypeScript
+ * vérifie réellement ; le chemin local paie une conversion unique,
+ * documentée à son endroit.
+ */
+export type Db = ReturnType<typeof drizzlePostgres<typeof schema>>;
 
 const MIGRATIONS = path.join(process.cwd(), 'drizzle');
 
@@ -33,7 +45,7 @@ function loadPGlite(): PGliteCtor {
 }
 
 export type CreateDbOptions = {
-  /** Dossier de persistance. `null` → mémoire vive (tests). */
+  /** Dossier PGlite. `null` → mémoire vive (tests). `undefined` → voir `createDb`. */
   dir?: string | null;
   /** Appliquer les migrations SQL à l'ouverture. */
   migrate?: boolean;
@@ -42,11 +54,48 @@ export type CreateDbOptions = {
 /**
  * Ouvre une base et optionnellement y applique les migrations.
  *
- * - `dir: null`  → base en mémoire, isolée : c'est ce que font les tests.
- * - `dir: 'x'`   → base persistante dans `x`.
- * - non fourni   → `PGLITE_DIR`, sinon `./.data/vigil`.
+ * ── Choix du moteur, dans cet ordre ─────────────────────────────────
+ *
+ *   1. `dir` fourni           → **PGlite**. On demande explicitement un
+ *                               dossier local, `null` compris. C'est ce que
+ *                               font les tests : la règle garantit qu'**aucun
+ *                               test ne peut toucher au réseau**, même si
+ *                               `DATABASE_URL` est défini dans l'environnement.
+ *
+ *   2. `DATABASE_URL` défini  → **Postgres managé** (Vercel / Neon / Supabase).
+ *                               S'il est mal renseigné, on échoue *bruyamment* :
+ *                               basculer silencieusement sur un fichier local
+ *                               côté serveur créerait une base fantôme à chaque
+ *                               invocation.
+ *
+ *   3. sinon                  → **PGlite persistant** (`PGLITE_DIR`,
+ *                               sinon `./.data/vigil`).
  */
 export async function createDb(opts: CreateDbOptions = {}): Promise<Db> {
+  if (opts.dir === undefined && process.env.DATABASE_URL) {
+    return createPostgresDb(opts.migrate !== false);
+  }
+  return createPgliteDb(opts);
+}
+
+async function createPostgresDb(shouldMigrate: boolean): Promise<Db> {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL manquant.');
+
+  const client = postgres(url, {
+    // Un pooler en mode transaction (Neon, Supabase) ne sait pas rejouer une
+    // requête préparée à chaque round-trip : `prepare: false` fait passer le
+    // même code derrière un pooler et derrière un Postgres nu.
+    prepare: false,
+    max: Number(process.env.PG_POOL_MAX) || 5,
+  });
+
+  const db = drizzlePostgres(client, { schema });
+  if (shouldMigrate) await migratePostgres(db, { migrationsFolder: MIGRATIONS });
+  return db;
+}
+
+async function createPgliteDb(opts: CreateDbOptions): Promise<Db> {
   const dir = opts.dir === undefined ? (process.env.PGLITE_DIR ?? './.data/vigil') : opts.dir;
 
   // Résolu UNE seule fois pour que `mkdirSync` et PGlite visent exactement
@@ -59,12 +108,42 @@ export async function createDb(opts: CreateDbOptions = {}): Promise<Db> {
 
   const PGlite = loadPGlite();
   const client = new PGlite(resolvedDir ?? undefined);
-  const db = drizzle(client, { schema });
+  const local = drizzlePglite(client, { schema });
 
   if (opts.migrate !== false) {
-    await migrate(db, { migrationsFolder: MIGRATIONS });
+    await migratePglite(local, { migrationsFolder: MIGRATIONS });
   }
-  return db;
+  // Conversion documentée (voir `Db`) : même `PgDatabase`, client différent.
+  return local as unknown as Db;
+}
+
+/**
+ * Ferme la base — et surtout, **la vraie raison d'exister** : les deux
+ * moteurs gardent le processus vivant tant qu'ils ne sont pas fermés.
+ * Un script de migration PGlite ne s'arrête pas sans `close()`, un script
+ * Postgres laisse un pool de connexions ouvert.
+ */
+export async function closeDb(db: Db): Promise<void> {
+  const client = db.$client as unknown as {
+    close?: () => Promise<void>;
+    end?: (opts?: unknown) => Promise<void>;
+  };
+  if (typeof client.close === 'function') await client.close(); // PGlite
+  else if (typeof client.end === 'function') await client.end(); // postgres-js
+}
+
+/**
+ * Normalise la sortie de `db.execute()`.
+ *
+ * Les deux moteurs ne s'exprient pas pareil : PGlite renvoie un objet
+ * `{ rows }`, postgres-js renvoie **directement** le tableau des lignes.
+ * Cet adaptateur laisse le même test — et le même code — passer sur les
+ * deux, sans dépendre de qui répond.
+ */
+export function rowsOf<T>(result: unknown): T[] {
+  if (Array.isArray(result)) return result as T[];
+  const rows = (result as { rows?: unknown } | null)?.rows;
+  return Array.isArray(rows) ? (rows as T[]) : [];
 }
 
 /* Singleton par processus : Next.js recrée les modules à chaque HMR,
@@ -76,7 +155,7 @@ export function getDb(): Promise<Db> {
     // Pas de migration à l'amorçage : courir des migrations à l'intérieur
     // du serveur fait rater plusieurs instances concurrentes, et dans le
     // bundle de production cette lecture de fichiers échoue. Le schéma est
-    // appliqué par `npm run db:migrate` (voir package.json).
+    // appliqué par `npm run db:migrate` — au build sur Vercel (voir vercel.json).
     globalForDb.__vigilDb = createDb({ migrate: false });
   }
   return globalForDb.__vigilDb;

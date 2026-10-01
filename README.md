@@ -7,7 +7,7 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Drizzle-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-84%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-85%20passed-brightgreen)
 
 **Live · English below · [Version française](#version-française)**
 
@@ -71,8 +71,9 @@ Rules are **edited, never deleted**: incidents store a `rule_id`, and `ON DELETE
 | Styling | Tailwind CSS v4 + a hand-written design system | One accent, severity carried by colour, not decoration |
 | Database | **PostgreSQL** via Drizzle ORM | Real relational schema, versioned migrations |
 | Local / CI | **PGlite** (PostgreSQL compiled to WASM) | The same Postgres engine locally and in CI, zero services to install |
+| Production | **Managed Postgres** through `DATABASE_URL` | Neon / Supabase / Vercel Postgres — `prepare: false`, so the same code runs behind PgBouncer |
 | Validation | Zod | One place for request shapes, output types follow |
-| Tests | Vitest — **84 tests** | Unit + integration against a real Postgres |
+| Tests | Vitest — **85 tests** | Unit + integration against a real Postgres |
 | CI | GitHub Actions | typecheck → lint → test → build |
 
 ---
@@ -82,7 +83,7 @@ Rules are **edited, never deleted**: incidents store a `rule_id`, and `ON DELETE
 ```bash
 npm install
 npm run db:generate   # regenerate SQL migrations (after editing the schema)
-npm run db:migrate    # apply migrations to the local PGlite database
+npm run db:migrate    # migrations — Postgres si DATABASE_URL, sinon PGlite local
 npm run db:seed       # demo data, produced by the real rules engine
 npm run dev           # http://localhost:3000
 ```
@@ -100,8 +101,9 @@ npm run dev           # http://localhost:3000
 | `npm test` | Vitest, single run |
 | `npm run test:coverage` | Coverage report |
 | `npm run db:generate` | Create migrations from the Drizzle schema |
-| `npm run db:migrate` | Apply migrations |
+| `npm run db:migrate` | Apply migrations — Postgres if `DATABASE_URL`, local PGlite otherwise |
 | `npm run db:seed` | Reset and load demo data |
+| `npm run db:tcp` | Start a real PostgreSQL socket locally (PGlite behind TCP) — see [Deploying](#deploying) |
 | `npm run verify` | typecheck + lint + test (what CI runs) |
 
 ---
@@ -123,7 +125,7 @@ src/
 ├── components/                     UI, all client islands isolated
 ├── db/
 │   ├── schema.ts                   8 tables + domain types
-│   └── index.ts                    Connection (PGlite chargée à l'exécution)
+│   └── index.ts                    Connection — `DATABASE_URL` → Postgres, sinon PGlite
 └── lib/
     ├── rules.ts        ★ the rules engine — pure, no I/O
     ├── moderation.ts   ★ state machines + KPIs — pure, no I/O
@@ -161,7 +163,7 @@ Every mutation endpoint validates with Zod and answers with a precise status: `4
 
 ## Testing
 
-**84 tests, 5 files.**
+**85 tests, 5 files.**
 
 - `rules.test.ts` (engine) — priority ordering, multi-match evaluation, severity-based decision, disabled rules, invalid regex isolation, zero-width regex infinite-loop guard, case-insensitivity
 - `rule-editing.test.ts` — the write path: severity/action floor (all four severities), compilable-regex rejection, per-field French errors, and on real Postgres that a rule edit writes **exactly one** audit entry — or none at all when nothing changed
@@ -237,15 +239,52 @@ function loadPGlite(): PGliteCtor {
 
 ---
 
+## Deploying
+
+```bash
+# 1. une base managée — Neon / Supabase / Vercel Postgres → copier l'URL
+
+# 2. éprouver le chemin de production SANS compte ni Docker :
+#    PGlite parle le protocole PostgreSQL réel, on l'expose en TCP
+npm run db:tcp
+#    puis, dans un autre terminal :
+DATABASE_URL=postgres://127.0.0.1:54329/postgres npm run db:migrate
+DATABASE_URL=postgres://127.0.0.1:54329/postgres npm run db:seed
+DATABASE_URL=postgres://127.0.0.1:54329/postgres npm run build
+
+# 3. livrer
+vercel        # vercel.json exécute « db:migrate && next build »
+```
+
+**Pourquoi les migrations au build et pas au démarrage :** les fonctions
+serverless démarrent en parallèle — faire migrer chacune revient à courir le
+même SQL sur N instances en même temps. Au build, ça tourne **une fois**.
+
+**Le garde-fou :** `db:migrate` **refuse** de s'exécuter sur Vercel sans
+`DATABASE_URL`. Un fichier local y est éphémère : la migration paraîtrait
+réussie, puis chaque démarrage repartirait d'une base vide. Mieux vaut un
+déploiement refusé qu'un déploiement cassé.
+
+**Le harnais TCP est une dépendance de développement**
+(`@electric-sql/pglite-socket`) : il n'entre jamais dans le bundle. C'est ce
+qui permet de vérifier le chemin déployé — driver `postgres`, TLS,
+`prepare: false`, agrégation du pooler — sans Docker et sans compte cloud.
+
+> **Honnêteté :** ce chemin est prouvé de bout en bout en local, mais le
+> projet n'est **pas encore déployé** : il faudrait un projet Vercel et une
+> base, que je ne crée pas à votre place. Aucune URL en ligne n'est promise.
+
+---
+
 ## Limitations & next steps
 
 Honest scope notes:
 
-- **Storage is PGlite-backed.** The schema is standard PostgreSQL and the SQL is portable, but the app opens PGlite directly — there is no `DATABASE_URL` branch yet. Pointing it at Neon / Vercel Postgres is the next piece of work, not a config switch.
-- **The database is file-backed on local disk.** It is not suitable for serverless/edge runtimes as-is; the Node.js runtime is declared on every route for that reason.
+- **Storage switches on `DATABASE_URL`.** Set → managed Postgres (Neon / Supabase / Vercel Postgres); unset → PGlite on local disk. The branch lives in `src/db/index.ts`, and an explicit `dir` always means PGlite — which is precisely why no test can reach the network. There is **no silent fallback**: with `DATABASE_URL` present but wrong, the app fails loudly instead of writing to an ephemeral file.
+- **Not yet deployed.** The managed path is proven end-to-end against a real PostgreSQL socket — migrations, seed, reads and writes all ran over TCP (see [Deploying](#deploying)). What is missing is the account plumbing (a Vercel project + a managed database), so there is still **no live URL to click**.
+- **No rate limiting** on auth endpoints — add it before any real deployment.
 - **Single-workspace reads.** Registration creates a workspace, but the console currently resolves the shared demo workspace. Multi-tenancy by membership is the next step.
 - **No drag-and-drop reordering.** Priority is a plain integer you type; there is no sortable list. The evaluation order stays explicit either way, so this is a ergonomics gap rather than a correctness one.
-- **No rate limiting** on auth endpoints — add it before any real deployment.
 - **Playwright e2e** is not wired up yet; the interaction checks above were run manually.
 
 ---
@@ -268,7 +307,9 @@ Les règles se **modifient, elles ne se suppriment pas** : les incidents conserv
 
 Le journal `audit_log` est **en écriture seule** : aucune requête du projet ne le met à jour ni ne le supprime. Un incident tranché ne se rouvre pas silencieusement — cela passe par un appel motivé et tranché.
 
-**Pile :** Next.js 16 · TypeScript strict · Tailwind v4 · PostgreSQL (Drizzle) · PGlite · Vitest · GitHub Actions.
+**Stockage :** un seul branchement, `DATABASE_URL`. Renseigné → Postgres managé (Neon / Supabase / Vercel) ; absent → PGlite en local. **Aucun repli silencieux** : une URL fausse fait échouer bruyamment plutôt que d'écrire dans un fichier qui disparaîtrait au prochain démarrage. Et un `dir` explicite veut toujours dire PGlite — c'est ce qui garantit qu'**aucun test ne peut toucher au réseau**.
+
+**Pile :** Next.js 16 · TypeScript strict · Tailwind v4 · PostgreSQL (Drizzle) · PGlite (local/CI) · Postgres managé (`DATABASE_URL`) · Vitest · GitHub Actions.
 
 **Note d'ingénierie :** un défaut réel a été isolé en production uniquement — Turbopack empaquetait PGlite avec les conditions du navigateur, ce qui faisait échouer chaque requête sous Next.js alors que le même code tournait sous `tsx`. Diagnostic complet (et hypothèses ratées) dans la section [Case study](#case-study-a-failure-only-production-could-show).
 

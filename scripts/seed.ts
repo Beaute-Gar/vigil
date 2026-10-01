@@ -8,7 +8,7 @@
  *
  * Idempotent : on repart d'une base propre à chaque exécution.
  */
-import { createDb } from '../src/db';
+import { closeDb, createDb } from '../src/db';
 import { appeals, auditLog, incidents, rules, sessions, users, workspaces, workspaceMembers } from '../src/db/schema';
 import { detect, resolveIncident, decideAppeal, getOrCreateWorkspace, listAudit } from '../src/lib/repository';
 import { hashPassword } from '../src/lib/auth';
@@ -193,11 +193,7 @@ async function main(): Promise<void> {
   console.log('');
   console.log('  connexion : demo@vigil.app / vigil-demo-2026');
 
-  await close(db);
-}
-
-async function close(db: { $client?: { close?: () => Promise<void> } }): Promise<void> {
-  await db.$client?.close?.();
+  await closeDb(db);
 }
 
 main().catch((err) => {
