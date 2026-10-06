@@ -69,7 +69,11 @@ h1, h2, h3, h4 {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: transform 180ms ease, border-color 180ms ease;
 }
+
+/* Une carte qui se détache au survol, sans ombre ni bruit. */
+.card:hover { transform: translateY(-2px); border-color: var(--border-strong); }
 
 .card-pad { padding: 1.15rem; }
 
@@ -104,11 +108,14 @@ h1, h2, h3, h4 {
   line-height: 1.1;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 120ms ease;
   white-space: nowrap;
 }
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Le doigt enfonce la commande : retour immédiat, jamais décoratif. */
+.btn:active:not(:disabled) { transform: scale(0.97); }
 
 .btn-primary {
   background: var(--accent);
@@ -266,6 +273,64 @@ select.input {
   transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ── Animations ──────────────────────────────────────────────────── */
+
+/* Les cinq mouvements du jeu — sans dépendance, sans bibliothèque. */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pastille : le halo serait d’une couleur figée, la pastille elle-même
+   change de ton selon l’état — on anime donc la forme et l’éclat, la
+   couleur reste portée par `currentColor`. */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  55% { opacity: 0.58; transform: scale(0.74); }
+}
+
+@keyframes line-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(230%); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/*
+  `backwards` et non `both` : l’animation tient l’élément pendant son
+  entrée, puis **rend la main** aux styles normaux. Avec `both`, le
+  dernier transform figé écraserait le survol des cartes et l’enfoncement
+  des boutons — l’animation doit finir, pas gouverner.
+*/
+.anim-in { animation: fade-up 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+/* Une ligne de log qui arrive dans la console. */
+.anim-line { animation: line-in 240ms ease-out backwards; }
+
+/* Pastille de statut : elle respire tant que le bot répond. */
+.live-dot { animation: pulse-dot 2.2s ease-in-out infinite; }
+
+/* Barre de chargement : une seule traversée lumineuse, en boucle. */
+.shimmer { position: relative; overflow: hidden; }
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.26), transparent);
+  animation: shimmer 1.5s linear infinite;
+}
+
+.spinner { animation: spin 800ms linear infinite; }
+
 /* ── Accessibilité ───────────────────────────────────────────────── */
 
 :focus-visible {
@@ -299,4 +364,14 @@ select.input {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  /* Les animations du pont WhatsApp : neutralisées, jamais substituées. */
+  .anim-in, .anim-line, .live-dot, .spinner {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+  .shimmer::after { animation: none !important; opacity: 0; }
+  .card, .btn, .input { transition: none !important; }
+  .card:hover, .btn:active:not(:disabled) { transform: none; }
 }

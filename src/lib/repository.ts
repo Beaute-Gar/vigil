@@ -6,11 +6,13 @@
  * la même opération que le changement d'état.
  */
 
-import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
-import type { Db } from '@/db';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { rowsOf, type Db } from '@/db';
 import {
   appeals,
   auditLog,
+  botCommands,
+  botNodes,
   incidents,
   rules,
   users,
@@ -18,11 +20,26 @@ import {
   workspaces,
   type Appeal,
   type AppealStatus,
+  type BotCommand,
+  type BotCommandKind,
+  type BotCommandStatus,
+  type BotLogLine,
+  type BotNode,
+  type BotNodePayload,
+  type BotNodeStatus,
+  type BotStatusReport,
   type Incident,
   type IncidentStatus,
   type Rule,
   type Severity,
 } from '@/db/schema';
+import {
+  BOT_CLAIM_LIMIT,
+  BOT_HISTORY_LIMIT,
+  BOT_LOG_LIMIT,
+  BOT_NODE_DEFAULT_NAME,
+  resolveBotNodeStatus,
+} from '@/lib/bot';
 import { evaluateRules, type RuleLike } from '@/lib/rules';
 import {
   decideAppealState,
@@ -593,4 +610,222 @@ export async function ensureMembership(db: Db, userId: string, workspaceId: stri
     .values({ userId, workspaceId, role })
     .returning();
   return row;
+}
+
+/* ── Pont WhatsApp (bot DJOUSSE TECH) ─────────────────────────────── */
+
+/** Un identifiant non UUID est « inconnu » : ignoré, jamais une erreur SQL. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type BotResultReport = {
+  id: string;
+  status: 'done' | 'failed';
+  result: string | null;
+};
+
+export type BotSyncInput = {
+  workspaceId: string;
+  name: string;
+  status?: BotStatusReport;
+  logs: BotLogLine[];
+  results: BotResultReport[];
+};
+
+export type BotSyncOutcome = { commands: BotCommand[] };
+
+type CompletedCommandRow = {
+  id: string;
+  kind: BotCommandKind;
+  status: BotCommandStatus;
+  result: string | null;
+  payload: string | null;
+};
+
+/**
+ * Upsert du nœud — **une seule requête**, fusion des logs comprise.
+ *
+ * Le budget d'un poll est volontairement maigre : une synchronisation
+ * toutes les 3 s ne doit pas lire l'ancien payload pour le réécrire (1
+ * select + 1 update), ni rejouer une ligne de log à la fois. Tout se
+ * joue dans la clause `do update` :
+ *
+ *   payload = (ancien payload)          ← l'état du bot précédent
+ *           || (payload proposé − logs) ← le dernier état reçu, écrasé
+ *           || { logs: … }              ← 200 dernières lignes, en ordre
+ *
+ * `jsonb_array_elements(…) with ordinality` concatène l'ancienne file
+ * et la nouvelle, `limit 200` tronque **par la gauche** (les plus
+ * anciennes tombent), et l'agrégat remet le reste dans l'ordre.
+ * Comme tout tient dans un UPDATE, deux polls concurrents ne peuvent
+ * pas se voler de lignes : la clause est réévaluée sur la ligne verrouillée.
+ */
+async function upsertBotNode(
+  db: Db,
+  input: { workspaceId: string; name: string; status?: BotStatusReport; logs: BotLogLine[] },
+): Promise<void> {
+  const proposed = JSON.stringify({ ...(input.status ?? {}), logs: input.logs });
+
+  await db.execute(sql`
+    insert into bot_nodes (workspace_id, name, payload, status, last_seen_at)
+    values (${input.workspaceId}, ${input.name}, ${proposed}::jsonb, 'online', now())
+    on conflict (workspace_id, name) do update set
+      status = 'online',
+      last_seen_at = now(),
+      payload = (
+        (coalesce(bot_nodes.payload, '{}'::jsonb) || (excluded.payload - 'logs'))
+        || jsonb_build_object('logs', coalesce((
+          select jsonb_agg(part.item order by part.seq)
+          from (
+            select ln.item, ln.seq
+            from jsonb_array_elements(
+              coalesce(bot_nodes.payload -> 'logs', '[]'::jsonb)
+              || coalesce(excluded.payload -> 'logs', '[]'::jsonb)
+            ) with ordinality as ln(item, seq)
+            order by ln.seq desc
+            limit ${BOT_LOG_LIMIT}
+          ) as part
+        ), '[]'::jsonb))
+      )
+  `);
+}
+
+/**
+ * Traite une synchronisation du bot, dans cet ordre :
+ *
+ *  1. **upsert du nœud** (état + logs) ;
+ *  2. **résultats** — une seule requête `update … from (values …)` pour
+ *     toute la palette, puis une ligne de journal par résultat traité ;
+ *  3. **réclamation** des commandes `pending` → `running`, les plus
+ *     anciennes d'abord, au plus `BOT_CLAIM_LIMIT`.
+ *
+ * Les résultats passent *avant* la réclamation : une commande dont le
+ * bot renvoie déjà l'issue dans ce même poll ne doit pas ressortir
+ * comme « à faire ». L'ordre donne aussi l'idempotence : une commande
+ * `done`/`failed` n'est plus mise à jour (donc plus journalisée) si le
+ * bot renvoie le même résultat — un retry ne duplique rien.
+ */
+export async function syncBot(db: Db, input: BotSyncInput): Promise<BotSyncOutcome> {
+  const name = input.name || BOT_NODE_DEFAULT_NAME;
+
+  await upsertBotNode(db, {
+    workspaceId: input.workspaceId,
+    name,
+    status: input.status,
+    logs: input.logs,
+  });
+
+  const results = input.results.filter((r) => UUID_RE.test(r.id));
+  if (results.length > 0) {
+    const palette = sql.join(
+      results.map((r) => sql`(${r.id}::uuid, ${r.status}::text, ${r.result}::text)`),
+      sql`, `,
+    );
+
+    const completed = rowsOf<CompletedCommandRow>(
+      await db.execute(sql`
+        update bot_commands as c
+        set status = v.status, result = v.result, completed_at = now()
+        from (values ${palette}) as v (id, status, result)
+        where c.id = v.id
+          and c.workspace_id = ${input.workspaceId}
+          and c.status in ('pending', 'running')
+        returning c.id, c.kind, c.status, c.result, c.payload
+      `),
+    );
+
+    for (const row of completed) {
+      await appendAudit(db, {
+        workspaceId: input.workspaceId,
+        event: 'bot.command.result',
+        details: {
+          commandId: row.id,
+          kind: row.kind,
+          status: row.status,
+          ...(row.result ? { result: row.result } : {}),
+        },
+      });
+    }
+  }
+
+  const pendingIds = db
+    .select({ id: botCommands.id })
+    .from(botCommands)
+    .where(and(eq(botCommands.workspaceId, input.workspaceId), eq(botCommands.status, 'pending')))
+    .orderBy(asc(botCommands.createdAt), asc(botCommands.id))
+    .limit(BOT_CLAIM_LIMIT);
+
+  const claimed = await db
+    .update(botCommands)
+    .set({ status: 'running' })
+    .where(inArray(botCommands.id, pendingIds))
+    .returning();
+
+  // `returning` n'ordonne rien : c'est le contrat qui le fait, pas la chance.
+  return {
+    commands: claimed.sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id),
+    ),
+  };
+}
+
+/** Pose un ordre pour le prochain poll du bot. */
+export async function createBotCommand(
+  db: Db,
+  input: { workspaceId: string; kind: BotCommandKind; payload?: string | null },
+): Promise<BotCommand> {
+  const [row] = await db
+    .insert(botCommands)
+    .values({
+      workspaceId: input.workspaceId,
+      kind: input.kind,
+      payload: input.payload ?? null,
+    })
+    .returning();
+  return row;
+}
+
+export async function getBotNode(
+  db: Db,
+  workspaceId: string,
+  name = BOT_NODE_DEFAULT_NAME,
+): Promise<BotNode | undefined> {
+  const [row] = await db
+    .select()
+    .from(botNodes)
+    .where(and(eq(botNodes.workspaceId, workspaceId), eq(botNodes.name, name)))
+    .limit(1);
+  return row;
+}
+
+/** Dernières commandes posées, du plus récent au plus ancien. */
+export async function listBotCommands(
+  db: Db,
+  workspaceId: string,
+  limit = BOT_HISTORY_LIMIT,
+): Promise<BotCommand[]> {
+  return db
+    .select()
+    .from(botCommands)
+    .where(eq(botCommands.workspaceId, workspaceId))
+    .orderBy(desc(botCommands.createdAt), desc(botCommands.id))
+    .limit(limit);
+}
+
+export type BotNodeView = {
+  status: BotNodeStatus;
+  lastSeenAt: Date | null;
+  payload: BotNodePayload;
+};
+
+/**
+ * Vue affichable d'un nœud : le statut y est **recalculé** (30 s sans
+ * signalement = hors ligne). Jamais écrit en base — voir `resolveBotNodeStatus`.
+ */
+export function botNodeView(node: BotNode | undefined, now = new Date()): BotNodeView | null {
+  if (!node) return null;
+  return {
+    status: resolveBotNodeStatus(node.status, node.lastSeenAt, now),
+    lastSeenAt: node.lastSeenAt,
+    payload: node.payload,
+  };
 }

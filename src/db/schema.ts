@@ -211,6 +211,95 @@ export const auditLog = pgTable(
   (t) => [index('audit_ws_created_idx').on(t.workspaceId, t.createdAt)],
 );
 
+/* ── Pont WhatsApp (bot DJOUSSE TECH) ────────────────────────────── */
+
+export const BOT_COMMAND_KINDS = ['pairing', 'qr', 'status', 'stop', 'raw'] as const;
+export type BotCommandKind = (typeof BOT_COMMAND_KINDS)[number];
+
+export const BOT_COMMAND_STATUSES = ['pending', 'running', 'done', 'failed'] as const;
+export type BotCommandStatus = (typeof BOT_COMMAND_STATUSES)[number];
+
+export const BOT_NODE_STATUSES = ['online', 'offline', 'stale'] as const;
+export type BotNodeStatus = (typeof BOT_NODE_STATUSES)[number];
+
+/**
+ * État tel que le bot l'a publié, champ à champ.
+ *
+ * Ces valeurs sont **aplatics** dans `bot_nodes.payload` (l'écran lit
+ * `payload.qr`, `payload.pairingCode`, … sans second niveau) ; seule la
+ * file de logs vit sous une clé dédiée.
+ */
+export type BotStatusReport = {
+  connected?: boolean;
+  number?: string | null;
+  uptimeMs?: number;
+  version?: string;
+  prefix?: string;
+  /** Nombre de commandes chargées par le bot. */
+  commands?: number;
+  groups?: number;
+  engine?: string;
+  connectMethod?: 'qr' | 'pairing';
+  /** QR brut ou data-URL. */
+  qr?: string | null;
+  pairingCode?: string | null;
+  pairingFor?: string | null;
+};
+
+export type BotLogLine = { t: number; line: string };
+
+/** `payload` de `bot_nodes` : dernier état reçu + 200 derniers logs. */
+export type BotNodePayload = BotStatusReport & { logs: BotLogLine[] };
+
+/**
+ * Un nœud = une instance du bot Node.js chez l'utilisateur.
+ * `status` est conservé tel que publié ; l'écran recalcule `offline`
+ * à la lecture dès que `last_seen_at` dépasse 30 s (aucun cron).
+ */
+export const botNodes = pgTable(
+  'bot_nodes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    payload: jsonb('payload').$type<BotNodePayload>().notNull(),
+    status: text('status').$type<BotNodeStatus>().notNull().default('offline'),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex('bot_nodes_ws_name_uidx').on(t.workspaceId, t.name),
+    index('bot_nodes_last_seen_idx').on(t.lastSeenAt),
+  ],
+);
+
+/**
+ * Une commande = un ordre posé par la console, en attente d'être
+ * réclamé par le prochain `POST /api/bot/sync` du bot.
+ */
+export const botCommands = pgTable(
+  'bot_commands',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<BotCommandKind>().notNull(),
+    payload: text('payload'),
+    status: text('status').$type<BotCommandStatus>().notNull().default('pending'),
+    result: text('result'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (t) => [index('bot_commands_ws_status_created_idx').on(t.workspaceId, t.status, t.createdAt)],
+);
+
 /* ── Schéma agrégé (registre Drizzle) ─────────────────────────────── */
 
 export const schema = {
@@ -222,6 +311,8 @@ export const schema = {
   incidents,
   appeals,
   auditLog,
+  botNodes,
+  botCommands,
 };
 
 export type User = typeof users.$inferSelect;
@@ -230,3 +321,5 @@ export type Rule = typeof rules.$inferSelect;
 export type Incident = typeof incidents.$inferSelect;
 export type Appeal = typeof appeals.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
+export type BotNode = typeof botNodes.$inferSelect;
+export type BotCommand = typeof botCommands.$inferSelect;

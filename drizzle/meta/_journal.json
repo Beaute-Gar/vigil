@@ -8,6 +8,13 @@
       "when": 1790835836024,
       "tag": "0000_far_monster_badoon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791324739226,
+      "tag": "0001_skinny_dagger",
+      "breakpoints": true
     }
   ]
 }
