@@ -57,10 +57,14 @@ const BotStatusBody = z.object(
       .number('« commands » doit être un nombre.')
       .int('« commands » doit être un entier (nombre de commandes chargées).')
       .min(0, '« commands » ne peut pas être négatif.'),
+    // Optionnel, aligné sur BotStatusReport : un bot qui ne connaît pas
+    // encore ses groupes ne doit PAS être refusé — un 422 couperait le pont
+    // entier alors que tout le reste du statut est valide.
     groups: z
       .number('« groups » doit être un nombre.')
       .int('« groups » doit être un entier (nombre de groupes).')
-      .min(0, '« groups » ne peut pas être négatif.'),
+      .min(0, '« groups » ne peut pas être négatif.')
+      .optional(),
     engine: z.string('« engine » doit être du texte.').max(40, '40 caractères maximum.'),
     connectMethod: z.enum(['qr', 'pairing'], '« connectMethod » inconnu : qr ou pairing.'),
     qr: z
