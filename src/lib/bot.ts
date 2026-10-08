@@ -16,6 +16,7 @@ import { z } from 'zod';
 import {
   BOT_COMMAND_KINDS,
   type BotCommandKind,
+  type BotCommandStatus,
   type BotLogLine,
   type BotNodeStatus,
   type BotStatusReport,
@@ -40,6 +41,32 @@ export const BOT_HISTORY_LIMIT = 20;
 
 /** Longueur maximale du payload d'une commande libre. */
 export const BOT_PAYLOAD_MAX_LENGTH = 500;
+
+/**
+ * Délai au-delà duquel une commande sans issue est considérée morte.
+ *
+ * Le bot signale toutes les 3 s et exécute ses ordres dans la seconde :
+ * 60 s sans résultat, c'est deux minutes de polls ratés — le problème
+ * n'est pas la commande, c'est le bot (éteint, déconnecté, jamais parti).
+ */
+export const BOT_COMMAND_TIMEOUT_MS = 60_000;
+
+/** Résultat posé par le site quand le bot ne répond pas à temps. */
+export const BOT_COMMAND_TIMEOUT_RESULT =
+  'Aucune réponse du bot sous 60 s — vérifiez qu’il tourne.';
+
+/**
+ * Horodatage du rendu serveur de la console du pont.
+ *
+ * L’horloge vit ici, pas dans le composant : React refuse `Date.now()`
+ * dans le corps d’un composant (pureté / re-rendres idempotents). Un
+ * composant serveur `force-dynamic` est rendu une fois par requête — y
+ * porter l’heure est précisément ce qu’il fait, et la valeur part vers
+ * le client comme référence commune du premier rendu (voir `BotPanel`).
+ */
+export function botRenderNow(): number {
+  return Date.now();
+}
 
 /* ── Validation : synchronisation du bot ─────────────────────────── */
 
@@ -258,4 +285,83 @@ export function resolveBotNodeStatus(
   if (!lastSeenAt) return 'offline';
   if (now.getTime() - lastSeenAt.getTime() > BOT_OFFLINE_AFTER_MS) return 'offline';
   return stored;
+}
+
+/**
+ * Une commande sans résultat depuis plus de `BOT_COMMAND_TIMEOUT_MS`.
+ *
+ * `bot_commands` ne porte qu'un horodatage de création (pas de « mise à
+ * jour ») : l'âge fait foi. `done`/`failed` n'expirent jamais — une issue
+ * est déjà posée, il n'y a rien à rattraper.
+ *
+ * La bascule elle-même (écriture `failed` + résultat explicite) vit dans
+ * `repository.ts`, **à la lecture** : `GET /api/bot/state` et le pendant
+ * de `POST /api/bot/sync`. Aucun cron, et seules les commandes qui
+ * expirent réellement sont écrites.
+ */
+export function isBotCommandExpired(
+  status: BotCommandStatus,
+  createdAt: Date,
+  now: Date = new Date(),
+): boolean {
+  if (status !== 'pending' && status !== 'running') return false;
+  return now.getTime() - createdAt.getTime() > BOT_COMMAND_TIMEOUT_MS;
+}
+
+/* ── État PUBLIC — page « Connecter mon WhatsApp » ───────────────── */
+
+/**
+ * Ce que la page de connexion a le droit de voir : six champs, pas un
+ * de plus. Le site public n'affiche qu'un QR et l'état autour de lui ;
+ * journal, numéro en clair, commandes et code d'appairage restent
+ * réservés à la console authentifiée.
+ */
+export type PublicBotState = {
+  online: boolean;
+  connected: boolean;
+  qr: string | null;
+  connectMethod: 'qr' | 'pairing' | null;
+  /** Numéro connecté, masqué : `+237 6••••••93`. */
+  numberMasked: string | null;
+  lastSeenAt: string | null;
+};
+
+/**
+ * Masque un numéro : `237652746693` → `+237 6••••••93`.
+ * On garde l'indicatif, le premier chiffre et les deux derniers — assez
+ * pour reconnaître SON compte, pas pour composer le numéro d'autrui.
+ */
+export function maskNumber(number: string | null | undefined): string | null {
+  const digits = String(number || '').replace(/\D/g, '');
+  if (digits.length < 8) return null;
+  const hidden = '•'.repeat(Math.max(3, digits.length - 6));
+  return `+${digits.slice(0, 3)} ${digits.slice(3, 4)}${hidden}${digits.slice(-2)}`;
+}
+
+/**
+ * Réduit l'état du pont à ce qu'une page PUBLIQUE peut afficher.
+ *
+ * Deux garde-fous, tous deux couverts par les tests :
+ *  - bot muet depuis 30 s (`offline`) → ni QR ni connexion annoncés :
+ *    un QR dont le bot est mort ne se scanne plus, l'afficher serait
+ *    un mensonge ;
+ *  - la sortie est un objet NEUF à clés exactes : exposer un champ de
+ *    plus est un choix explicite, une fuite involontaire (logs, pairing
+ *    Code…) est structurellement impossible.
+ */
+export function publicBotState(
+  status: BotNodeStatus,
+  lastSeenAt: Date | null,
+  payload: (BotStatusReport & { logs?: BotLogLine[] }) | null | undefined,
+): PublicBotState {
+  const online = status === 'online';
+  const connected = online && payload?.connected === true;
+  return {
+    online,
+    connected,
+    qr: online ? payload?.qr ?? null : null,
+    connectMethod: online ? payload?.connectMethod ?? null : null,
+    numberMasked: connected ? maskNumber(payload?.number) : null,
+    lastSeenAt: lastSeenAt ? lastSeenAt.toISOString() : null,
+  };
 }
