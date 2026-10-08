@@ -17,8 +17,9 @@ export default async function RulesPage() {
   const activeCount = rules.filter((r) => r.enabled).length;
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-[1400px]">
       <PageHeader
+        eyebrow="MOTEUR"
         title="Règles de modération"
         description={`Ordre d’évaluation explicite : ${rules.length} règle${rules.length > 1 ? 's' : ''}, ${activeCount} active${activeCount > 1 ? 's' : ''}. La priorité décide de l’ordre, la sévérité décide de l’action.`}
         action={<RuleFormButton mode="create" label="Nouvelle règle" className="btn btn-primary btn-sm" />}

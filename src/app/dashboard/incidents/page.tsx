@@ -48,8 +48,9 @@ export default async function IncidentsPage({
   const active = (status !== 'all' ? 1 : 0) + (severity !== 'all' ? 1 : 0);
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-[1400px]">
       <PageHeader
+        eyebrow="FILE DE TRAITEMENT"
         title="Incidents"
         description="File de traitement. Un incident ne change d’état qu’une fois — une seconde décision est refusée par la machine à états."
         action={

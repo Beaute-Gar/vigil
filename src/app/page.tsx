@@ -33,7 +33,7 @@ const STACK = [
   { group: 'Interface', items: ['Next.js 16 (App Router)', 'React 19', 'TypeScript strict', 'Tailwind CSS v4'] },
   { group: 'Données', items: ['PostgreSQL', 'Drizzle ORM', 'Migrations versionnées', 'PGlite en local', 'Postgres managé (DATABASE_URL)'] },
   { group: 'Confiance', items: ['scrypt (RFC 7914)', 'Sessions opaques hachées', 'Cookies HTTP-only', 'Journal immuable'] },
-  { group: 'Qualité', items: ['Vitest — 61 tests', 'ESLint', 'Typecheck strict', 'GitHub Actions'] },
+  { group: 'Qualité', items: ['Vitest — 124 tests', 'ESLint', 'Typecheck strict', 'GitHub Actions'] },
 ] as const;
 
 const LIFECYCLE = [
@@ -67,7 +67,7 @@ export default function LandingPage() {
         {/* ── Hero ─────────────────────────────────────────────── */}
         <section className="relative grid-bg overflow-hidden border-b border-[var(--border)]">
           <div className="mx-auto max-w-6xl px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
-            <div className="max-w-3xl">
+            <div className="max-w-3xl anim-in">
               <span className="badge ring-1 ring-inset bg-[var(--accent-dim)] text-[var(--accent)] ring-[var(--accent)]/30 mono">
                 <span className="dot" />
                 Trust &amp; Safety · console de modération
@@ -113,22 +113,26 @@ export default function LandingPage() {
         {/* ── Principe de fonctionnement ───────────────────────── */}
         <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
           <div className="max-w-2xl">
-            <p className="label mono">LE PRINCIPE</p>
+            <p className="label mono text-[var(--accent)]">LE PRINCIPE</p>
             <h2 className="mt-3 text-[1.7rem] sm:text-[2rem] leading-tight">
               Quatre décisions de conception qui tiennent tout le produit
             </h2>
           </div>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            {FEATURES.map((f) => (
-              <article key={f.step} className="panel p-6 flex flex-col">
+            {FEATURES.map((f, i) => (
+              <article
+                key={f.step}
+                className="panel p-6 flex flex-col anim-in"
+                style={{ animationDelay: `${i * 70}ms` }}
+              >
                 <div className="flex items-baseline justify-between gap-4">
                   <span className="mono text-[var(--accent)] text-sm">{f.step}</span>
-                  <span className="faint text-[0.72rem] mono uppercase tracking-wider text-right">
+                  <span className="faint text-[0.7rem] mono uppercase tracking-[0.14em] text-right">
                     {f.detail}
                   </span>
                 </div>
-                <h3 className="mt-4 text-[1.08rem]">{f.title}</h3>
+                <h3 className="mt-4 text-[1.05rem]">{f.title}</h3>
                 <p className="muted text-[0.885rem] leading-relaxed mt-2.5">{f.body}</p>
               </article>
             ))}
@@ -140,7 +144,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
             <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:items-start">
               <div>
-                <p className="label mono">LE CYCLE DE VIE</p>
+                <p className="label mono text-[var(--accent)]">LE CYCLE DE VIE</p>
                 <h2 className="mt-3 text-[1.7rem] leading-tight">
                   De la détection au dossier
                 </h2>
@@ -180,7 +184,7 @@ export default function LandingPage() {
         {/* ── Pile technique ───────────────────────────────────── */}
         <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
           <div className="max-w-2xl">
-            <p className="label mono">INGÉNIERIE</p>
+            <p className="label mono text-[var(--accent)]">INGÉNIERIE</p>
             <h2 className="mt-3 text-[1.7rem] sm:text-[2rem] leading-tight">
               Une pile courte, choisie pour durer
             </h2>

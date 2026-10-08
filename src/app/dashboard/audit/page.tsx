@@ -7,15 +7,17 @@ export const metadata: Metadata = { title: 'Journal d’audit' };
 export const dynamic = 'force-dynamic';
 
 const EVENT_TONE: Record<string, string> = {
-  'incident.created': 'text-sky-300 ring-sky-500/30 bg-sky-500/15',
+  'incident.created': 'text-cyan-300 ring-cyan-500/30 bg-cyan-500/15',
   'incident.dismissed': 'text-zinc-300 ring-zinc-500/30 bg-zinc-500/15',
   'incident.confirmed': 'text-emerald-300 ring-emerald-500/30 bg-emerald-500/15',
   'appeal.granted': 'text-emerald-300 ring-emerald-500/30 bg-emerald-500/15',
-  'appeal.denied': 'text-rose-300 ring-rose-500/30 bg-rose-500/15',
+  'appeal.denied': 'text-red-400 ring-red-500/40 bg-red-500/15',
   'rule.enabled': 'text-amber-300 ring-amber-500/30 bg-amber-500/15',
   'rule.disabled': 'text-amber-300 ring-amber-500/30 bg-amber-500/15',
-  'rule.created': 'text-teal-300 ring-teal-500/30 bg-teal-500/15',
-  'rule.updated': 'text-teal-300 ring-teal-500/30 bg-teal-500/15',
+  'rule.created': 'text-cyan-300 ring-cyan-500/30 bg-cyan-500/15',
+  'rule.updated': 'text-cyan-300 ring-cyan-500/30 bg-cyan-500/15',
+  'bot.command.result': 'text-emerald-300 ring-emerald-500/30 bg-emerald-500/15',
+  'bot.command.expired': 'text-red-400 ring-red-500/40 bg-red-500/15',
 };
 
 const DEFAULT_TONE = 'text-[var(--text-muted)] ring-[var(--border-strong)] bg-white/[0.03]';
@@ -82,8 +84,9 @@ export default async function AuditPage() {
   }, {});
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-[1400px]">
       <PageHeader
+        eyebrow="PREUVE · ÉCRITURE SEULE"
         title="Journal d’audit"
         description={`${entries.length} entrée${entries.length > 1 ? 's' : ''} — la chronologie complète de l’espace, dans l’ordre antéchronologique.`}
       />

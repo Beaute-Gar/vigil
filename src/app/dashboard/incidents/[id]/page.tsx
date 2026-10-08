@@ -42,7 +42,7 @@ export default async function IncidentDetailPage({
   ]);
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-[1400px]">
       <Link
         href="/dashboard/incidents"
         className="inline-flex items-center gap-1.5 muted text-[0.83rem] hover:text-[var(--accent)] transition-colors mb-5"

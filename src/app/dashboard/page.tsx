@@ -49,8 +49,9 @@ export default async function DashboardPage() {
   const volumeMax = Math.max(1, ...volume.map((v) => v.n));
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-[1400px]">
       <PageHeader
+        eyebrow="SYNTHÈSE"
         title="Vue d’ensemble"
         description={`Espace « ${workspace.name} » — état courant de la modération, mesuré sur la base réelle.`}
         action={

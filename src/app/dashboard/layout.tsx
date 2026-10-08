@@ -26,26 +26,30 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="flex min-h-screen flex-col">
       {/* Barre haute */}
-      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--bg)]/90 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--bg)]/95 backdrop-blur-md">
         <div className="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
           <Link
             href="/dashboard"
             className="text-[var(--text)] hover:text-[var(--accent)] transition-colors"
           >
-            <Logo size={20} />
+            <Logo size={19} />
           </Link>
 
           <div className="flex items-center gap-3 min-w-0">
+            <span className="hidden md:block badge mono ring-1 ring-inset bg-white/[0.03] text-[var(--text-muted)] ring-[var(--border-strong)]">
+              console · espace djousse
+            </span>
+
             <div className="hidden sm:flex items-center gap-2.5 min-w-0">
               <span
                 aria-hidden="true"
-                className="grid h-7 w-7 flex-none place-items-center rounded-full bg-[var(--accent-dim)] text-[var(--accent)] text-[0.7rem] font-semibold ring-1 ring-inset ring-[var(--accent)]/30"
+                className="grid h-7 w-7 flex-none place-items-center rounded-[5px] bg-[var(--accent-dim)] text-[var(--accent)] text-[0.7rem] font-semibold mono ring-1 ring-inset ring-[var(--accent)]/30"
               >
                 {initials || 'V'}
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[0.85rem] leading-tight">{user.name}</span>
-                <span className="block truncate faint text-[0.72rem] leading-tight">
+                <span className="block truncate faint mono text-[0.7rem] leading-tight">
                   {user.email}
                 </span>
               </span>

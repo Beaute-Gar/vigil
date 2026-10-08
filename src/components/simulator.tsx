@@ -89,10 +89,10 @@ export function Simulator() {
 
   return (
     <form onSubmit={run} className="card overflow-hidden">
-      <div className="px-5 py-4 border-b border-[var(--border)] flex flex-wrap items-center justify-between gap-3">
+      <div className="card-head">
         <div>
-          <h2 className="text-[1.02rem]">Soumettre un message au moteur</h2>
-          <p className="faint text-[0.8rem] mt-1">
+          <h2 className="card-title">Soumettre un message au moteur</h2>
+          <p className="faint text-[0.76rem] mt-0.5 leading-snug">
             La détection tourne réellement — l’incident s’inscrit dans la base s’il y a lieu.
           </p>
         </div>

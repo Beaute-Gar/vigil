@@ -1,29 +1,47 @@
 import type { ReactNode } from 'react';
 
-/** En-tête de page du tableau de bord : titre, sous-titre, actions. */
+/**
+ * En-tête de page du tableau de bord.
+ *
+ * Deux voix typographiques : l’intitulé (sans-serif, compact) et
+ * l’intertitre en petites capitales tracées (mono, accent) qui situe
+ * l’écran dans la console. Un filet sépare l’en-tête du corps — la
+ * structure se lit avant le contenu.
+ */
 export function PageHeader({
   title,
   description,
+  eyebrow,
   action,
 }: {
   title: string;
   description?: string;
+  eyebrow?: string;
   action?: ReactNode;
 }) {
   return (
-    <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
-      <div className="min-w-0">
-        <h1 className="text-[1.4rem] leading-tight">{title}</h1>
-        {description && (
-          <p className="muted text-sm mt-1.5 max-w-2xl leading-relaxed">{description}</p>
-        )}
+    <header className="mb-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          {eyebrow && (
+            <p className="label mono text-[var(--accent)] mb-2">{eyebrow}</p>
+          )}
+          <h1 className="text-[1.45rem] leading-none tracking-[-0.02em] font-semibold">{title}</h1>
+          {description && (
+            <p className="muted text-[0.875rem] mt-2.5 max-w-3xl leading-relaxed">{description}</p>
+          )}
+        </div>
+        {action && <div className="flex items-center gap-2 flex-none">{action}</div>}
       </div>
-      {action && <div className="flex items-center gap-2 flex-none">{action}</div>}
+      <div className="mt-5 h-px bg-[var(--border)]" aria-hidden="true" />
     </header>
   );
 }
 
-/** Carte de chiffre — le libellé porte le sens, la couleur n'aide pas. */
+/**
+ * Carte de chiffre — le libellé porte le sens, la couleur n’aide pas.
+ * Valeur en mono, chiffres tabulaires : les colonnes s’alignent.
+ */
 export function KpiCard({
   label,
   value,
@@ -38,14 +56,14 @@ export function KpiCard({
   const tones = {
     neutral: 'text-[var(--text)]',
     accent: 'text-[var(--accent)]',
-    warn: 'text-amber-300',
-    danger: 'text-rose-300',
+    warn: 'text-amber-400',
+    danger: 'text-red-400',
   } as const;
 
   return (
     <div className="card card-pad">
       <div className="label">{label}</div>
-      <div className={`mono text-[1.9rem] leading-none mt-2.5 font-semibold ${tones[tone]}`}>
+      <div className={`mono text-[2rem] leading-none mt-2.5 font-semibold ${tones[tone]}`}>
         {value}
       </div>
       {hint && <div className="faint text-xs mt-2 leading-snug">{hint}</div>}
@@ -92,7 +110,7 @@ export function Meter({ value, label }: { value: number; label: string }) {
   );
 }
 
-/** Encart explicatif — la « leçon » d'un écran, en une phrase. */
+/** Encart explicatif — la « leçon » d’un écran, en une phrase. */
 export function Note({ children }: { children: ReactNode }) {
   return (
     <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-white/[0.02] px-4 py-3 text-[0.82rem] leading-relaxed muted">

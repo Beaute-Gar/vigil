@@ -17,8 +17,12 @@ import { createDb, type Db } from '@/db';
 import { botCommands, botNodes, workspaces, type BotLogLine } from '@/db/schema';
 import {
   BOT_CLAIM_LIMIT,
+  BOT_COMMAND_TIMEOUT_MS,
+  BOT_COMMAND_TIMEOUT_RESULT,
+  BOT_HISTORY_LIMIT,
   BOT_LOG_LIMIT,
   BOT_NODE_DEFAULT_NAME,
+  isBotCommandExpired,
   resolveBotNodeStatus,
   validateBotCommand,
   validateBotSync,
@@ -27,6 +31,7 @@ import { formatLastSeen, formatUptime } from '@/lib/bot-format';
 import {
   botNodeView,
   createBotCommand,
+  expireStaleBotCommands,
   getBotNode,
   getOrCreateWorkspace,
   listAudit,
@@ -225,6 +230,28 @@ describe('statut calculé à la lecture', () => {
   });
 });
 
+describe('expiration des commandes (logique pure)', () => {
+  const posed = new Date('2026-10-06T12:00:00.000Z');
+
+  it('n’expire rien avant 60 s, expire au-delà', () => {
+    expect(isBotCommandExpired('pending', posed, new Date(posed.getTime() + 59_000))).toBe(false);
+    expect(isBotCommandExpired('pending', posed, new Date(posed.getTime() + 61_000))).toBe(true);
+    expect(isBotCommandExpired('running', posed, new Date(posed.getTime() + 61_000))).toBe(true);
+    expect(BOT_COMMAND_TIMEOUT_MS).toBe(60_000);
+  });
+
+  it('laisse les commandes déjà jugées tranquilles', () => {
+    const ancient = new Date(posed.getTime() - 3_600_000);
+    expect(isBotCommandExpired('done', ancient, posed)).toBe(false);
+    expect(isBotCommandExpired('failed', ancient, posed)).toBe(false);
+  });
+
+  it('annonce une issue explicable en français', () => {
+    expect(BOT_COMMAND_TIMEOUT_RESULT).toContain('60 s');
+    expect(BOT_COMMAND_TIMEOUT_RESULT).toContain('bot');
+  });
+});
+
 /* ── Exécution : nœud + logs ────────────────────────────────────── */
 
 describe('synchronisation du nœud', () => {
@@ -339,20 +366,21 @@ describe('réclamation des commandes', () => {
     });
     const c3 = await createBotCommand(db, { workspaceId, kind: 'raw', payload: '.antilink on' });
 
-    // Des horodatages explicites : l’ordre du contrat ne se joue pas
-    // au hasard des microsecondes.
-    const base = Date.now() - 60_000;
+    // Des horodatages explicites, tous en deçà du délai d'expiration
+    // (60 s) : l'ordre du contrat ne se joue pas au hasard des
+    // microsecondes, et ces commandes doivent rester réclamables.
+    const base = Date.now() - 30_000;
     await db
       .update(botCommands)
-      .set({ createdAt: new Date(base - 30_000) })
+      .set({ createdAt: new Date(base - 3_000) })
       .where(eq(botCommands.id, c1.id));
     await db
       .update(botCommands)
-      .set({ createdAt: new Date(base - 20_000) })
+      .set({ createdAt: new Date(base - 2_000) })
       .where(eq(botCommands.id, c2.id));
     await db
       .update(botCommands)
-      .set({ createdAt: new Date(base - 10_000) })
+      .set({ createdAt: new Date(base - 1_000) })
       .where(eq(botCommands.id, c3.id));
 
     const first = await syncBot(db, { workspaceId, name: BOT_NODE_DEFAULT_NAME, ...NO_SYNC });
@@ -477,6 +505,108 @@ describe('résultats de commandes', () => {
     const [row] = await db.select().from(botCommands).where(eq(botCommands.id, foreign.id));
     expect(row.status).toBe('pending');
     expect(row.result).toBeNull();
+  });
+});
+
+/* ── Expiration : le bot ne répond pas ────────────────────────────── */
+
+/** Rajeunit une commande posée il y a `ageMs`, comme si le temps passait. */
+function ageCommand(
+  id: string,
+  ageMs: number,
+  extra: Partial<typeof botCommands.$inferInsert> = {},
+): Promise<unknown> {
+  return db
+    .update(botCommands)
+    .set({ createdAt: new Date(Date.now() - ageMs), ...extra })
+    .where(eq(botCommands.id, id));
+}
+
+describe('expiration des commandes', () => {
+  it('clôt en échec une commande sans réponse depuis plus de 60 s', async () => {
+    const cmd = await createBotCommand(db, { workspaceId, kind: 'qr' });
+    await ageCommand(cmd.id, 61_000);
+
+    const expired = await expireStaleBotCommands(db, workspaceId);
+    expect(expired.map((c) => c.id)).toContain(cmd.id);
+
+    const [row] = await db.select().from(botCommands).where(eq(botCommands.id, cmd.id));
+    expect(row.status).toBe('failed');
+    expect(row.result).toBe(BOT_COMMAND_TIMEOUT_RESULT);
+    expect(row.completedAt).toBeInstanceOf(Date);
+
+    // Traçable : la bascule laisse une ligne de journal, comme un résultat.
+    const audits = (await listAudit(db, workspaceId)).filter(
+      (a) => a.event === 'bot.command.expired',
+    );
+    expect(audits).toHaveLength(1);
+    expect((audits[0].details as { commandId?: string }).commandId).toBe(cmd.id);
+  });
+
+  it('n’écrit rien tant qu’aucune commande n’a réellement expiré', async () => {
+    const fresh = await createBotCommand(db, { workspaceId, kind: 'status' });
+
+    expect(await expireStaleBotCommands(db, workspaceId)).toHaveLength(0);
+
+    const [row] = await db.select().from(botCommands).where(eq(botCommands.id, fresh.id));
+    expect(row.status).toBe('pending');
+    expect(row.result).toBeNull();
+    expect(row.completedAt).toBeNull();
+  });
+
+  it('expire aussi une commande déjà réclamée (`running`)', async () => {
+    const cmd = await createBotCommand(db, { workspaceId, kind: 'stop' });
+    await ageCommand(cmd.id, 61_000, { status: 'running' });
+
+    await expireStaleBotCommands(db, workspaceId);
+
+    const [row] = await db.select().from(botCommands).where(eq(botCommands.id, cmd.id));
+    expect(row.status).toBe('failed');
+    expect(row.result).toBe(BOT_COMMAND_TIMEOUT_RESULT);
+  });
+
+  it('bascule à la lecture : `listBotCommands` voit l’échec, pas l’éternel « en attente »', async () => {
+    const cmd = await createBotCommand(db, { workspaceId, kind: 'raw', payload: '.ping' });
+    await ageCommand(cmd.id, 61_000);
+
+    const rows = await listBotCommands(db, workspaceId, BOT_HISTORY_LIMIT);
+    const row = rows.find((r) => r.id === cmd.id);
+
+    expect(row?.status).toBe('failed');
+    expect(row?.result).toBe(BOT_COMMAND_TIMEOUT_RESULT);
+    expect(row?.completedAt).toBeInstanceOf(Date);
+  });
+
+  it('ne réclame plus un ordre périmé : il sort en échec, jamais en file', async () => {
+    const cmd = await createBotCommand(db, { workspaceId: annexId, kind: 'qr' });
+    await ageCommand(cmd.id, 61_000);
+
+    const { commands } = await syncBot(db, {
+      workspaceId: annexId,
+      name: 'ANNEXE',
+      ...NO_SYNC,
+    });
+
+    expect(commands.map((c) => c.id)).not.toContain(cmd.id);
+    const [row] = await db.select().from(botCommands).where(eq(botCommands.id, cmd.id));
+    expect(row.status).toBe('failed');
+    expect(row.result).toBe(BOT_COMMAND_TIMEOUT_RESULT);
+  });
+
+  it('une réponse arrivant dans le même poll l’emporte sur l’expiration', async () => {
+    const cmd = await createBotCommand(db, { workspaceId, kind: 'raw', payload: '.ping' });
+    await ageCommand(cmd.id, 61_000);
+
+    await syncBot(db, {
+      workspaceId,
+      name: BOT_NODE_DEFAULT_NAME,
+      logs: [],
+      results: [{ id: cmd.id, status: 'done', result: 'pong' }],
+    });
+
+    const [row] = await db.select().from(botCommands).where(eq(botCommands.id, cmd.id));
+    expect(row.status).toBe('done');
+    expect(row.result).toBe('pong');
   });
 });
 

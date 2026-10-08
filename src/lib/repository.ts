@@ -6,7 +6,7 @@
  * la même opération que le changement d'état.
  */
 
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { rowsOf, type Db } from '@/db';
 import {
   appeals,
@@ -35,6 +35,8 @@ import {
 } from '@/db/schema';
 import {
   BOT_CLAIM_LIMIT,
+  BOT_COMMAND_TIMEOUT_MS,
+  BOT_COMMAND_TIMEOUT_RESULT,
   BOT_HISTORY_LIMIT,
   BOT_LOG_LIMIT,
   BOT_NODE_DEFAULT_NAME,
@@ -690,19 +692,80 @@ async function upsertBotNode(
 }
 
 /**
+ * Fait expirer, **à la lecture**, les commandes restées sans issue.
+ *
+ * Une commande `pending` ou `running` âgée de plus de 60 s bascule en
+ * `failed` avec un résultat explicite — l'écran cesse de tourner indéfini-
+ * ment, même si le bot ne revient jamais. Le même principe que le statut
+ * online/offline : pas de cron, l'état est vrai au moment où on le regarde.
+ *
+ * Deux garanties :
+ *  - la clause `created_at < échéance` ne matche que ce qui expire
+ *    réellement (index `bot_commands_ws_status_created_idx`) : un poll
+ *    ordinaire ne réécrit rien ;
+ *  - chaque bascule laisse une ligne de journal, au même titre qu'un
+ *    résultat rapporté par le bot.
+ *
+ * Renvoie les commandes expirées (vide le plus souvent).
+ */
+export async function expireStaleBotCommands(
+  db: Db,
+  workspaceId: string,
+  now: Date = new Date(),
+): Promise<BotCommand[]> {
+  const cutoff = new Date(now.getTime() - BOT_COMMAND_TIMEOUT_MS);
+  const pending: BotCommandStatus[] = ['pending', 'running'];
+
+  const expired = await db
+    .update(botCommands)
+    .set({
+      status: 'failed',
+      result: BOT_COMMAND_TIMEOUT_RESULT,
+      completedAt: now,
+    })
+    .where(
+      and(
+        eq(botCommands.workspaceId, workspaceId),
+        inArray(botCommands.status, pending),
+        lt(botCommands.createdAt, cutoff),
+      ),
+    )
+    .returning();
+
+  for (const row of expired) {
+    await appendAudit(db, {
+      workspaceId,
+      event: 'bot.command.expired',
+      details: {
+        commandId: row.id,
+        kind: row.kind,
+        status: 'failed',
+        result: row.result,
+      },
+    });
+  }
+
+  return expired;
+}
+
+/**
  * Traite une synchronisation du bot, dans cet ordre :
  *
  *  1. **upsert du nœud** (état + logs) ;
  *  2. **résultats** — une seule requête `update … from (values …)` pour
  *     toute la palette, puis une ligne de journal par résultat traité ;
- *  3. **réclamation** des commandes `pending` → `running`, les plus
+ *  3. **expiration** — les commandes mortes depuis plus de 60 s passent
+ *     en `failed` (lecture : elles ne doivent plus jamais repartir) ;
+ *  4. **réclamation** des commandes `pending` → `running`, les plus
  *     anciennes d'abord, au plus `BOT_CLAIM_LIMIT`.
  *
  * Les résultats passent *avant* la réclamation : une commande dont le
  * bot renvoie déjà l'issue dans ce même poll ne doit pas ressortir
  * comme « à faire ». L'ordre donne aussi l'idempotence : une commande
  * `done`/`failed` n'est plus mise à jour (donc plus journalisée) si le
- * bot renvoie le même résultat — un retry ne duplique rien.
+ * bot renvoie le même résultat — un retry ne duplique rien. L'expiration
+ * s'intercale entre les deux : une réponse arrivant dans ce poll gagne,
+ * un ordre déjà mort ne repart jamais en file.
  */
 export async function syncBot(db: Db, input: BotSyncInput): Promise<BotSyncOutcome> {
   const name = input.name || BOT_NODE_DEFAULT_NAME;
@@ -746,6 +809,10 @@ export async function syncBot(db: Db, input: BotSyncInput): Promise<BotSyncOutco
       });
     }
   }
+
+  // Commandes mortes (60 s sans issue) : écartées avant la réclamation,
+  // pour qu'un ordre périmé ne reparte jamais en file.
+  await expireStaleBotCommands(db, input.workspaceId);
 
   const pendingIds = db
     .select({ id: botCommands.id })
@@ -803,6 +870,11 @@ export async function listBotCommands(
   workspaceId: string,
   limit = BOT_HISTORY_LIMIT,
 ): Promise<BotCommand[]> {
+  // Lecture = expiration : `GET /api/bot/state` et l'écran du pont voient
+  // basculer en `failed` les commandes restées sans réponse au-delà de 60 s,
+  // sans cron et sans écriture quand rien n'a expiré.
+  await expireStaleBotCommands(db, workspaceId);
+
   return db
     .select()
     .from(botCommands)

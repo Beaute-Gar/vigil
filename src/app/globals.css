@@ -2,28 +2,39 @@
 
 /*
   Design system — Vigil
-  Console de modération : sobre, dense, lisible. Un accent unique,
-  des sévérités portées par la couleur, jamais par la décoration.
+  « Console pro sombre » : outil d’ops, pas de vitrine. Fond quasi noir,
+  surfaces en paliers nets (jamais de flou), bordures fines. Un accent
+  dominant — cyan pour l’interactif — et trois tons fonctionnels :
+  vert = sain, ambre = attente, rouge = échec. Le mono porte toute
+  donnée variable (chiffres, IDs, horodatages, logs), le sans-serif
+  porte le discours.
 */
 
 :root {
-  --bg: #070A0C;
-  --bg-elevated: #0E1418;
-  --surface: #111A1F;
-  --surface-2: #162127;
-  --border: rgba(148, 184, 200, 0.12);
-  --border-strong: rgba(148, 184, 200, 0.22);
+  /* Paliers de surface : page → bandeau → carte → creux */
+  --bg: #05080d;
+  --bg-elevated: #0a0e14;
+  --surface: #0e141d;
+  --surface-2: #131a24;
+  --border: rgba(148, 163, 184, 0.10);
+  --border-strong: rgba(148, 163, 184, 0.22);
 
-  --text: #E7EEF2;
-  --text-muted: #8FA1AC;
-  --text-faint: #64757F;
+  --text: #e8eef4;
+  --text-muted: #9aa8b8;
+  --text-faint: #64748b;
 
-  --accent: #38BDF8;
-  --accent-strong: #0EA5E9;
-  --accent-dim: rgba(56, 189, 248, 0.12);
+  /* Accent dominant : l’interactif, le lien, le focus */
+  --accent: #22d3ee;
+  --accent-strong: #67e8f9;
+  --accent-dim: rgba(34, 211, 238, 0.10);
 
-  --radius: 10px;
-  --radius-sm: 7px;
+  /* Tons fonctionnels — un sens par couleur, partout dans le site */
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+
+  --radius: 8px;
+  --radius-sm: 5px;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
@@ -43,15 +54,16 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* ── Typographie ─────────────────────────────────────────────────── */
+/* ── Typographie : deux voix ────────────────────────────────────── */
 
 h1, h2, h3, h4 {
-  font-weight: 620;
-  letter-spacing: -0.018em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 
@@ -63,33 +75,67 @@ h1, h2, h3, h4 {
 .muted { color: var(--text-muted); }
 .faint { color: var(--text-faint); }
 
+/*
+  Label : petites capitales tracées. Le repère visuel de la console —
+  il situe (LIBELLÉ) pendant que la valeur, en mono juste en dessous,
+  parle.
+*/
+.label {
+  font-size: 0.665rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
 /* ── Surfaces ────────────────────────────────────────────────────── */
 
 .card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  transition: transform 180ms ease, border-color 180ms ease;
+  /* Bordure seulement : pas de soulèvement, la console ne rebondit pas. */
+  transition: border-color 160ms ease, background-color 160ms ease;
 }
 
-/* Une carte qui se détache au survol, sans ombre ni bruit. */
-.card:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.card:hover { border-color: var(--border-strong); }
 
-.card-pad { padding: 1.15rem; }
+.card-pad { padding: 1.1rem; }
+
+/* Bandeau de carte : titre + action, un filet, puis le contenu. */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--text);
+}
 
 .panel {
-  background: linear-gradient(180deg, rgba(255,255,255,0.018), transparent 60%), var(--bg-elevated);
+  background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent 60%), var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: border-color 160ms ease;
 }
+.panel:hover { border-color: var(--border-strong); }
 
 .hairline { border-top: 1px solid var(--border); }
 
-/* Subtle Cartesian grid — used behind hero and auth screens */
+/* Grille cartésienne discrète — fond des écrans d’accès et du héros */
 .grid-bg {
   background-image:
-    linear-gradient(to right, rgba(148,184,200,0.055) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148,184,200,0.055) 1px, transparent 1px);
+    linear-gradient(to right, rgba(148,163,184,0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148,163,184,0.05) 1px, transparent 1px);
   background-size: 46px 46px;
   mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 100%);
 }
@@ -103,23 +149,23 @@ h1, h2, h3, h4 {
   gap: 0.5rem;
   border-radius: var(--radius-sm);
   padding: 0.55rem 1rem;
-  font-size: 0.875rem;
+  font-size: 0.84rem;
   font-weight: 550;
   line-height: 1.1;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 120ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 110ms ease;
   white-space: nowrap;
 }
 
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* Le doigt enfonce la commande : retour immédiat, jamais décoratif. */
 .btn:active:not(:disabled) { transform: scale(0.97); }
 
 .btn-primary {
   background: var(--accent);
-  color: #04141C;
+  color: #04121a;
   font-weight: 640;
 }
 .btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
@@ -129,35 +175,28 @@ h1, h2, h3, h4 {
   color: var(--text);
   border-color: var(--border-strong);
 }
-.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.045); }
+.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.05); border-color: rgba(148,163,184,0.34); }
 
 .btn-danger {
-  background: rgba(244, 63, 94, 0.12);
-  color: #FDA4AF;
-  border-color: rgba(244, 63, 94, 0.3);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.32);
 }
-.btn-danger:hover:not(:disabled) { background: rgba(244, 63, 94, 0.2); }
+.btn-danger:hover:not(:disabled) { background: rgba(248, 113, 113, 0.2); }
 
-.btn-sm { padding: 0.34rem 0.66rem; font-size: 0.8rem; }
+.btn-sm { padding: 0.34rem 0.66rem; font-size: 0.78rem; }
 
 /* ── Formulaires ─────────────────────────────────────────────────── */
 
 .field { display: flex; flex-direction: column; gap: 0.4rem; }
-
-.label {
-  font-size: 0.775rem;
-  font-weight: 560;
-  color: var(--text-muted);
-  letter-spacing: 0.01em;
-}
 
 .input {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 0.6rem 0.75rem;
-  font-size: 0.9rem;
+  padding: 0.58rem 0.72rem;
+  font-size: 0.88rem;
   color: var(--text);
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -174,7 +213,7 @@ textarea.input { resize: vertical; min-height: 6rem; font-family: var(--font-mon
 
 select.input {
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238FA1AC' d='M6 8.5 2.5 5h7z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239AA8B8' d='M6 8.5 2.5 5h7z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
   padding-right: 2rem;
@@ -182,18 +221,18 @@ select.input {
 
 .form-error {
   font-size: 0.79rem;
-  color: #FDA4AF;
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.09);
+  border: 1px solid rgba(248, 113, 113, 0.28);
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.7rem;
 }
 
 .form-notice {
   font-size: 0.79rem;
-  color: #86EFAC;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.25);
   border-radius: var(--radius-sm);
   padding: 0.55rem 0.7rem;
 }
@@ -201,7 +240,7 @@ select.input {
 /* ── Dialogue modal (formulaire de règle) ─────────────────────────── */
 
 /* Le <dialog> natif donne gratuitement le piège de focus, Échap et
-   l'inertie du fond : on n'en réécrit que l'habillage. */
+   l’inertie du fond : on n’en réécrit que l’habillage. */
 .rule-dialog {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
@@ -215,7 +254,7 @@ select.input {
 }
 
 .rule-dialog::backdrop {
-  background: rgba(3, 6, 8, 0.75);
+  background: rgba(3, 6, 8, 0.78);
   backdrop-filter: blur(3px);
 }
 
@@ -229,9 +268,9 @@ select.input {
   gap: 0.35rem;
   border-radius: 999px;
   padding: 0.18rem 0.6rem;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: 0.015em;
+  letter-spacing: 0.02em;
   border: 1px solid transparent;
   white-space: nowrap;
 }
@@ -243,6 +282,13 @@ select.input {
   background: currentColor;
   flex: none;
 }
+
+/* ── Tableaux ────────────────────────────────────────────────────── */
+
+/* En-tête : bandeau à peine surélevé, labels en petites capitales. */
+table thead tr { background: rgba(255, 255, 255, 0.022); }
+
+.table-row-hover:hover { background: rgba(255,255,255,0.026); }
 
 /* ── Divers ──────────────────────────────────────────────────────── */
 
@@ -256,13 +302,11 @@ select.input {
   color: var(--text-muted);
 }
 
-.table-row-hover:hover { background: rgba(255,255,255,0.026); }
-
 /* Barre de progression — filets seulement, pas de remplissage décoratif */
 .meter {
   height: 5px;
   border-radius: 999px;
-  background: rgba(148, 184, 200, 0.11);
+  background: rgba(148, 163, 184, 0.12);
   overflow: hidden;
 }
 .meter > span {
@@ -270,15 +314,16 @@ select.input {
   height: 100%;
   border-radius: 999px;
   background: var(--accent);
-  transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 650ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ── Animations ──────────────────────────────────────────────────── */
 
-/* Les cinq mouvements du jeu — sans dépendance, sans bibliothèque. */
+/* Les cinq mouvements du jeu — sans dépendance, sans bibliothèque.
+   Rythme court : 150–450 ms, jamais de rebond. */
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -291,7 +336,7 @@ select.input {
 }
 
 @keyframes line-in {
-  from { opacity: 0; transform: translateX(-8px); }
+  from { opacity: 0; transform: translateX(-6px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
@@ -310,26 +355,26 @@ select.input {
   dernier transform figé écraserait le survol des cartes et l’enfoncement
   des boutons — l’animation doit finir, pas gouverner.
 */
-.anim-in { animation: fade-up 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.anim-in { animation: fade-up 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 
 /* Une ligne de log qui arrive dans la console. */
-.anim-line { animation: line-in 240ms ease-out backwards; }
+.anim-line { animation: line-in 200ms ease-out backwards; }
 
 /* Pastille de statut : elle respire tant que le bot répond. */
 .live-dot { animation: pulse-dot 2.2s ease-in-out infinite; }
 
-/* Barre de chargement : une seule traversée lumineuse, en boucle. */
+/* Emplacement en attente : une seule traversée lumineuse, en boucle. */
 .shimmer { position: relative; overflow: hidden; }
 .shimmer::after {
   content: '';
   position: absolute;
   inset: 0;
   width: 45%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.26), transparent);
-  animation: shimmer 1.5s linear infinite;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  animation: shimmer 1.4s linear infinite;
 }
 
-.spinner { animation: spin 800ms linear infinite; }
+.spinner { animation: spin 700ms linear infinite; }
 
 /* ── Accessibilité ───────────────────────────────────────────────── */
 
@@ -339,7 +384,7 @@ select.input {
   border-radius: 4px;
 }
 
-::selection { background: rgba(56, 189, 248, 0.28); }
+::selection { background: rgba(34, 211, 238, 0.3); }
 
 .sr-only {
   position: absolute;
@@ -352,10 +397,10 @@ select.input {
 }
 
 /* Chrome du défilement, cohérent avec la palette */
-* { scrollbar-width: thin; scrollbar-color: rgba(148,184,200,0.25) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.24) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: rgba(148,184,200,0.2); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(148,184,200,0.32); }
+::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.34); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -372,6 +417,6 @@ select.input {
     transform: none;
   }
   .shimmer::after { animation: none !important; opacity: 0; }
-  .card, .btn, .input { transition: none !important; }
-  .card:hover, .btn:active:not(:disabled) { transform: none; }
+  .card, .panel, .btn, .input { transition: none !important; }
+  .card:hover, .panel:hover, .btn:active:not(:disabled) { transform: none; }
 }

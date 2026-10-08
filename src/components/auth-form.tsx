@@ -86,7 +86,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
       <main className="flex-1 flex items-start justify-center px-6 py-12 sm:py-16">
         <div className="w-full max-w-[26rem]">
           <div className="text-center mb-8">
-            <h1 className="text-[1.6rem] leading-tight">
+            <p className="label mono text-[var(--accent)] mb-3">
+              {isRegister ? 'CRÉATION DE COMPTE' : 'ACCÈS À LA CONSOLE'}
+            </p>
+            <h1 className="text-[1.55rem] leading-tight">
               {isRegister ? 'Ouvrir une console' : 'Se connecter'}
             </h1>
             <p className="muted text-[0.9rem] mt-2.5 leading-relaxed">
@@ -164,25 +167,32 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </form>
 
           {mode === 'login' && (
-            <div className="mt-5 card card-pad">
-              <div className="label mono mb-2.5">COMPTE DE DÉMONSTRATION</div>
-              <code className="mono block text-[0.82rem] leading-relaxed text-[var(--text-muted)]">
-                demo@vigil.app
-                <br />
-                vigil-demo-2026
-              </code>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm w-full mt-3.5"
-                onClick={() => {
-                  setEmail('demo@vigil.app');
-                  setPassword('vigil-demo-2026');
-                  setFormError(null);
-                  setFieldErrors({});
-                }}
-              >
-                Pré-remplir le formulaire
-              </button>
+            <div className="mt-5 card overflow-hidden">
+              <div className="card-head">
+                <span className="label">COMPTE DE DÉMONSTRATION</span>
+                <span className="badge mono ring-1 ring-inset bg-[var(--accent-dim)] text-[var(--accent)] ring-[var(--accent)]/30">
+                  démo
+                </span>
+              </div>
+              <div className="card-pad">
+                <code className="mono block text-[0.82rem] leading-relaxed text-[var(--text-muted)]">
+                  demo@vigil.app
+                  <br />
+                  vigil-demo-2026
+                </code>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm w-full mt-3.5"
+                  onClick={() => {
+                    setEmail('demo@vigil.app');
+                    setPassword('vigil-demo-2026');
+                    setFormError(null);
+                    setFieldErrors({});
+                  }}
+                >
+                  Pré-remplir le formulaire
+                </button>
+              </div>
             </div>
           )}
 

@@ -108,11 +108,11 @@ export const SEVERITY_CLASSES: Record<Severity, string> = {
   low: 'bg-slate-500/15 text-slate-300 ring-slate-500/30',
   medium: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
   high: 'bg-orange-500/15 text-orange-300 ring-orange-500/30',
-  critical: 'bg-red-500/15 text-red-300 ring-red-500/30',
+  critical: 'bg-red-500/15 text-red-400 ring-red-500/40',
 };
 
 export const STATUS_CLASSES: Record<IncidentStatus, string> = {
-  open: 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
+  open: 'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',
   dismissed: 'bg-zinc-500/15 text-zinc-300 ring-zinc-500/30',
   confirmed: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
 };

@@ -79,7 +79,8 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-col gap-1 py-4" aria-label="Navigation du tableau de bord">
+    <nav className="flex flex-col gap-0.5 py-3" aria-label="Navigation du tableau de bord">
+      <p className="label px-4 pb-2 pt-1">Console</p>
       {NAV.map((item) => {
         const active = item.end
           ? pathname === item.href
@@ -91,10 +92,10 @@ export function Sidebar() {
             href={item.href}
             aria-current={active ? 'page' : undefined}
             className={[
-              'flex items-center gap-3 px-4 py-2.5 text-[0.885rem] border-l-2 transition-colors',
+              'flex items-center gap-3 mx-2 px-3 py-2.5 text-[0.86rem] rounded-[var(--radius-sm)] border-l-2 transition-colors',
               active
-                ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-dim)]'
-                : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/[0.03]',
+                ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-dim)] font-medium'
+                : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/[0.04]',
             ].join(' ')}
           >
             <Icon name={item.icon} />

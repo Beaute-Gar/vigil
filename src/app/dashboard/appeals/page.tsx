@@ -17,8 +17,9 @@ export default async function AppealsPage() {
   const pending = appeals.filter((a) => a.status === 'pending').length;
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-[1400px]">
       <PageHeader
+        eyebrow="SECOND EXAMEN"
         title="File d’appels"
         description={
           appeals.length === 0
