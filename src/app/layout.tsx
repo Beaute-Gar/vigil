@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
+/*
+  Trois voix typographiques :
+  · Fraunces — serif de display : titres, nameplate, chiffres éditoriaux
+  · Geist    — sans-serif     : l’interface, le discours courant
+  · Mono     — Geist Mono     : toute donnée variable (IDs, chiffres, logs)
+*/
+const fraunces = Fraunces({
+  variable: "--font-display",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="fr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

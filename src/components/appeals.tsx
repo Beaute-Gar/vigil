@@ -128,7 +128,7 @@ export function AppealDecision({
     return (
       <p className="faint text-[0.79rem] leading-relaxed pt-3 border-t border-[var(--border)] mt-3">
         Appel{' '}
-        <strong className={status === 'granted' ? 'text-emerald-300' : 'text-rose-300'}>
+        <strong className={status === 'granted' ? 'text-ok' : 'text-danger'}>
           {status === 'granted' ? 'accueilli' : 'rejeté'}
         </strong>
         . Clôturé.

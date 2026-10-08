@@ -7,20 +7,20 @@ export const metadata: Metadata = { title: 'Journal d’audit' };
 export const dynamic = 'force-dynamic';
 
 const EVENT_TONE: Record<string, string> = {
-  'incident.created': 'text-cyan-300 ring-cyan-500/30 bg-cyan-500/15',
-  'incident.dismissed': 'text-zinc-300 ring-zinc-500/30 bg-zinc-500/15',
-  'incident.confirmed': 'text-emerald-300 ring-emerald-500/30 bg-emerald-500/15',
-  'appeal.granted': 'text-emerald-300 ring-emerald-500/30 bg-emerald-500/15',
-  'appeal.denied': 'text-red-400 ring-red-500/40 bg-red-500/15',
-  'rule.enabled': 'text-amber-300 ring-amber-500/30 bg-amber-500/15',
-  'rule.disabled': 'text-amber-300 ring-amber-500/30 bg-amber-500/15',
-  'rule.created': 'text-cyan-300 ring-cyan-500/30 bg-cyan-500/15',
-  'rule.updated': 'text-cyan-300 ring-cyan-500/30 bg-cyan-500/15',
-  'bot.command.result': 'text-emerald-300 ring-emerald-500/30 bg-emerald-500/15',
-  'bot.command.expired': 'text-red-400 ring-red-500/40 bg-red-500/15',
+  'incident.created': 'text-accent ring-accent/30 bg-accent/15',
+  'incident.dismissed': 'text-neutral ring-neutral/30 bg-neutral/15',
+  'incident.confirmed': 'text-ok ring-ok/30 bg-ok/15',
+  'appeal.granted': 'text-ok ring-ok/30 bg-ok/15',
+  'appeal.denied': 'text-danger ring-danger/40 bg-danger/15',
+  'rule.enabled': 'text-warn ring-warn/30 bg-warn/15',
+  'rule.disabled': 'text-warn ring-warn/30 bg-warn/15',
+  'rule.created': 'text-accent ring-accent/30 bg-accent/15',
+  'rule.updated': 'text-accent ring-accent/30 bg-accent/15',
+  'bot.command.result': 'text-ok ring-ok/30 bg-ok/15',
+  'bot.command.expired': 'text-danger ring-danger/40 bg-danger/15',
 };
 
-const DEFAULT_TONE = 'text-[var(--text-muted)] ring-[var(--border-strong)] bg-white/[0.03]';
+const DEFAULT_TONE = 'text-[var(--text-muted)] ring-[var(--border-strong)] bg-[var(--surface)]';
 
 function formatDetail(value: unknown): string | null {
   if (value === null || value === undefined) return null;

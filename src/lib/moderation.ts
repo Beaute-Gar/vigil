@@ -105,16 +105,16 @@ export const ACTION_LABELS: Record<string, string> = {
 
 /** Classe Tailwind par sévérité — un seul endroit à changer. */
 export const SEVERITY_CLASSES: Record<Severity, string> = {
-  low: 'bg-slate-500/15 text-slate-300 ring-slate-500/30',
-  medium: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
-  high: 'bg-orange-500/15 text-orange-300 ring-orange-500/30',
-  critical: 'bg-red-500/15 text-red-400 ring-red-500/40',
+  low: 'bg-neutral/15 text-neutral ring-neutral/30',
+  medium: 'bg-warn/15 text-warn ring-warn/30',
+  high: 'bg-orange-500/15 text-orange-700 ring-orange-500/30',
+  critical: 'bg-danger/15 text-danger ring-danger/40',
 };
 
 export const STATUS_CLASSES: Record<IncidentStatus, string> = {
-  open: 'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',
-  dismissed: 'bg-zinc-500/15 text-zinc-300 ring-zinc-500/30',
-  confirmed: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
+  open: 'bg-accent/15 text-accent ring-accent/30',
+  dismissed: 'bg-neutral/15 text-neutral ring-neutral/30',
+  confirmed: 'bg-ok/15 text-ok ring-ok/30',
 };
 
 /* ── Indicateurs ──────────────────────────────────────────────────── */

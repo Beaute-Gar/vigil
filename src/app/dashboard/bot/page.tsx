@@ -65,7 +65,7 @@ export default async function BotPage() {
         title="Bot WhatsApp"
         description="Le bot DJOUSSE TECH publie son état et ses logs, la console lui pose des ordres. Un seul canal, dans les deux sens."
         action={
-          <span className="badge mono ring-1 ring-inset bg-white/[0.03] text-[var(--text-muted)] ring-[var(--border-strong)]">
+          <span className="badge mono ring-1 ring-inset bg-[var(--surface)] text-[var(--text-muted)] ring-[var(--border-strong)]">
             POST /api/bot/sync · 3 s
           </span>
         }

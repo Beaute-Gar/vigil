@@ -96,7 +96,7 @@ export function Simulator() {
             La détection tourne réellement — l’incident s’inscrit dans la base s’il y a lieu.
           </p>
         </div>
-        <span className="badge mono ring-1 ring-inset bg-white/[0.03] text-[var(--text-muted)] ring-[var(--border-strong)]">
+        <span className="badge mono ring-1 ring-inset bg-[var(--surface)] text-[var(--text-muted)] ring-[var(--border-strong)]">
           POST /api/incidents/detect
         </span>
       </div>
@@ -189,8 +189,8 @@ export function Simulator() {
 function Outcome({ result }: { result: Result }) {
   if (result.kind === 'clean') {
     return (
-      <div className="rounded-[var(--radius-sm)] border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5">
-        <div className="flex items-center gap-2.5 text-emerald-300 text-[0.9rem] font-medium">
+      <div className="rounded-[var(--radius-sm)] border border-ok/30 bg-ok/10 px-4 py-3.5">
+        <div className="flex items-center gap-2.5 text-ok text-[0.9rem] font-medium">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
               d="M20 6 9 17l-5-5"
@@ -202,7 +202,7 @@ function Outcome({ result }: { result: Result }) {
           </svg>
           Aucune règle déclenchée — message accepté
         </div>
-        <p className="text-emerald-200/70 text-[0.82rem] mt-1.5 leading-relaxed">
+        <p className="text-ok/80 text-[0.82rem] mt-1.5 leading-relaxed">
           Rien à signaler, aucun incident créé.
         </p>
         {result.invalidRules.length > 0 && <InvalidRules list={result.invalidRules} />}
@@ -221,9 +221,9 @@ function Outcome({ result }: { result: Result }) {
   const { incident } = result;
 
   return (
-    <div className="rounded-[var(--radius-sm)] border border-amber-500/30 bg-amber-500/[0.07] px-4 py-3.5 space-y-3">
+    <div className="rounded-[var(--radius-sm)] border border-warn/30 bg-warn/[0.07] px-4 py-3.5 space-y-3">
       <div className="flex flex-wrap items-center gap-2.5">
-        <span className="text-amber-300 text-[0.9rem] font-medium">Incident créé</span>
+        <span className="text-warn text-[0.9rem] font-medium">Incident créé</span>
         <SeverityBadge severity={incident.severity} />
         <ActionBadge action={incident.actionTaken} />
       </div>
@@ -234,10 +234,10 @@ function Outcome({ result }: { result: Result }) {
         <dt className="faint mono">canal</dt>
         <dd className="mono text-[var(--text)] truncate">{incident.channel}</dd>
         <dt className="faint mono">statut</dt>
-        <dd className="text-sky-300">ouvert — en attente d’un modérateur</dd>
+        <dd className="text-accent">ouvert — en attente d’un modérateur</dd>
       </dl>
 
-      <p className="text-amber-200/70 text-[0.82rem] leading-relaxed">
+      <p className="text-warn/80 text-[0.82rem] leading-relaxed">
         L’incident et sa première entrée de journal ont été écrits dans la même passe.
       </p>
 
@@ -248,13 +248,13 @@ function Outcome({ result }: { result: Result }) {
 
 function InvalidRules({ list }: { list: DetectResponse['invalidRules'] }) {
   return (
-    <div className="mt-3 pt-3 border-t border-amber-500/20">
-      <div className="text-[0.76rem] mono uppercase tracking-wide text-amber-300/90 mb-1.5">
+    <div className="mt-3 pt-3 border-t border-warn/30">
+      <div className="text-[0.76rem] mono uppercase tracking-wide text-warn/90 mb-1.5">
         Règles à réparer ({list.length})
       </div>
       <ul className="space-y-1">
         {list.map((r) => (
-          <li key={r.id} className="text-[0.79rem] text-amber-200/75 mono">
+          <li key={r.id} className="text-[0.79rem] text-warn/85 mono">
             {r.name} — {r.reason}
           </li>
         ))}

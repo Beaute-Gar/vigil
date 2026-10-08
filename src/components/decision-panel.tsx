@@ -60,7 +60,7 @@ export function DecisionPanel({ incidentId, status, resolvedAt, resolvedByName }
         <div className="label">Décision</div>
         <p className="text-[0.92rem] mt-2.5 leading-relaxed">
           Incident{' '}
-          <strong className={status === 'dismissed' ? 'text-zinc-200' : 'text-emerald-300'}>
+          <strong className={status === 'dismissed' ? 'text-neutral' : 'text-ok'}>
             {status === 'dismissed' ? 'écarté' : 'confirmé'}
           </strong>
           {resolvedAt && (

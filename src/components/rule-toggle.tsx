@@ -66,13 +66,13 @@ export function RuleToggle({
         className={[
           'relative inline-flex h-5.5 w-10 flex-none items-center rounded-full transition-colors duration-200',
           'disabled:opacity-60 cursor-pointer',
-          state ? 'bg-[var(--accent)]' : 'bg-white/12',
+          state ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]',
         ].join(' ')}
         style={{ height: '1.375rem', width: '2.5rem' }}
       >
         <span
           aria-hidden="true"
-          className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm"
+          className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 shadow-sm ring-1 ring-[var(--border)]"
           style={{ transform: `translateX(${state ? '1.25rem' : '0.125rem'})` }}
         />
       </button>
@@ -80,13 +80,13 @@ export function RuleToggle({
       <span
         className={[
           'text-[0.7rem] mono',
-          state ? 'text-emerald-300' : 'text-[var(--text-faint)]',
+          state ? 'text-ok' : 'text-[var(--text-faint)]',
         ].join(' ')}
       >
         {state ? 'active' : 'inactive'}
       </span>
 
-      {error && <span className="text-[0.7rem] text-rose-300 text-right">{error}</span>}
+      {error && <span className="text-[0.7rem] text-danger text-right">{error}</span>}
     </div>
   );
 }

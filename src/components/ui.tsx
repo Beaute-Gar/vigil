@@ -55,9 +55,9 @@ export function KpiCard({
 }) {
   const tones = {
     neutral: 'text-[var(--text)]',
-    accent: 'text-[var(--accent)]',
-    warn: 'text-amber-400',
-    danger: 'text-red-400',
+    accent: 'text-accent',
+    warn: 'text-warn',
+    danger: 'text-danger',
   } as const;
 
   return (
@@ -113,7 +113,7 @@ export function Meter({ value, label }: { value: number; label: string }) {
 /** Encart explicatif — la « leçon » d’un écran, en une phrase. */
 export function Note({ children }: { children: ReactNode }) {
   return (
-    <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-white/[0.02] px-4 py-3 text-[0.82rem] leading-relaxed muted">
+    <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[0.82rem] leading-relaxed muted">
       <svg
         width="16"
         height="16"

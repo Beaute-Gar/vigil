@@ -2,319 +2,392 @@
 
 /*
   Design system — Vigil
-  « Console pro sombre » : outil d’ops, pas de vitrine. Fond quasi noir,
-  surfaces en paliers nets (jamais de flou), bordures fines. Un accent
-  dominant — cyan pour l’interactif — et trois tons fonctionnels :
-  vert = sain, ambre = attente, rouge = échec. Le mono porte toute
-  donnée variable (chiffres, IDs, horodatages, logs), le sans-serif
-  porte le discours.
+  « Journal imprimé » : papier crème, encre bleu marine, filets fins et
+  filets doubles, titres en serif de display. Le bleu d’encre est l’unique
+  couleur d’accent — liens, focus, interactif — et trois tons fonctionnels
+  gardent leur sens : vert = sain, ambre = attente, rouge = échec.
+  Le mono porte toute donnée variable (chiffres, IDs, horodatages, logs),
+  le serif porte le discours éditorial, le sans-serif porte l’interface.
+
+  Les classes maison vivent dans `@layer components` : la couche
+  « utilities » de Tailwind vient après et peut donc les surcharger
+  normalement (texte accentué, bordure colorée…). Placer ces classes hors
+  de couche les ferait gagner contre les utilitaires — piège classique.
 */
 
+/* Tokens sémantiques → utilitaires Tailwind : text-ok, bg-danger/15,
+   ring-warn/30, border-accent… `inline` : l’utilitaire référence
+   directement la variable du thème, définie dans :root juste en dessous. */
+@theme inline {
+  --color-accent: var(--accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-neutral: var(--text-muted);
+}
+
 :root {
-  /* Paliers de surface : page → bandeau → carte → creux */
-  --bg: #05080d;
-  --bg-elevated: #0a0e14;
-  --surface: #0e141d;
-  --surface-2: #131a24;
-  --border: rgba(148, 163, 184, 0.10);
-  --border-strong: rgba(148, 163, 184, 0.22);
+  /* Paliers de surface : page papier → bandeau → carte blanche → creux */
+  --bg: #f7f4ec;
+  --bg-elevated: #fdfcf7;
+  --surface: #efe9dc;
+  --surface-2: #e6dfcd;
+  --border: rgba(24, 41, 60, 0.16);
+  --border-strong: rgba(24, 41, 60, 0.42);
 
-  --text: #e8eef4;
-  --text-muted: #9aa8b8;
-  --text-faint: #64748b;
+  /* Encre */
+  --text: #18293c;
+  --text-muted: #4b5c70;
+  --text-faint: #6e7c8c;
 
-  /* Accent dominant : l’interactif, le lien, le focus */
-  --accent: #22d3ee;
-  --accent-strong: #67e8f9;
-  --accent-dim: rgba(34, 211, 238, 0.10);
+  /* Accent dominant : le bleu d’encre — l’interactif, le lien, le focus */
+  --accent: #1e5fa9;
+  --accent-strong: #16467e;
+  --accent-dim: rgba(30, 95, 169, 0.10);
 
   /* Tons fonctionnels — un sens par couleur, partout dans le site */
-  --ok: #34d399;
-  --warn: #fbbf24;
-  --danger: #f87171;
+  --ok: #1c7a4f;
+  --warn: #8f5e18;
+  --danger: #a83024;
 
-  --radius: 8px;
-  --radius-sm: 5px;
+  --radius: 4px;
+  --radius-sm: 3px;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  --font-serif: var(--font-display), "Iowan Old Style", Georgia, "Times New Roman", serif;
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-* {
-  border-color: var(--border);
+@layer base {
+  /* Bordure par défaut : le filet d’encre, sur tout le site.
+     (couche `base` : un utilitaire border-* peut la surcharger) */
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    background: var(--bg);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Deux voix typographiques : le serif éditorial porte les titres,
+     le sans-serif porte l’interface. */
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  h4, h5, h6 {
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: rgba(30, 95, 169, 0.22);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
 }
 
-html {
-  background: var(--bg);
-}
+@layer components {
+  /* ── Typographie : trois voix ──────────────────────────────────── */
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
+  .mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1;
+  }
 
-/* ── Typographie : deux voix ────────────────────────────────────── */
+  .muted { color: var(--text-muted); }
+  .faint { color: var(--text-faint); }
 
-h1, h2, h3, h4 {
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
+  /*
+    Label : petites capitales tracées. Le repère de l’éditeur —
+    il situe (RUBRIQUE) pendant que le titre, en serif juste en
+    dessous, annonce.
+  */
+  .label {
+    font-size: 0.665rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--text-muted);
+    line-height: 1.2;
+  }
 
-.mono {
-  font-family: var(--font-mono);
-  font-feature-settings: "tnum" 1;
-}
+  /* ── Surfaces : papier blanc sur crème, filet fin, léger relief ─ */
 
-.muted { color: var(--text-muted); }
-.faint { color: var(--text-faint); }
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(24, 41, 60, 0.05);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
 
-/*
-  Label : petites capitales tracées. Le repère visuel de la console —
-  il situe (LIBELLÉ) pendant que la valeur, en mono juste en dessous,
-  parle.
-*/
-.label {
-  font-size: 0.665rem;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.13em;
-  color: var(--text-muted);
-  line-height: 1.2;
-}
+  .card:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 2px 5px rgba(24, 41, 60, 0.07);
+  }
 
-/* ── Surfaces ────────────────────────────────────────────────────── */
+  .card-pad { padding: 1.1rem; }
 
-.card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  /* Bordure seulement : pas de soulèvement, la console ne rebondit pas. */
-  transition: border-color 160ms ease, background-color 160ms ease;
-}
+  /* Bandeau de carte : titre + action, un filet, puis le contenu. */
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
 
-.card:hover { border-color: var(--border-strong); }
+  .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--text);
+  }
 
-.card-pad { padding: 1.1rem; }
+  .panel {
+    background: linear-gradient(180deg, rgba(24, 41, 60, 0.02), transparent 55%), var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(24, 41, 60, 0.04);
+    transition: border-color 160ms ease;
+  }
 
-/* Bandeau de carte : titre + action, un filet, puis le contenu. */
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 0.85rem 1.1rem;
-  border-bottom: 1px solid var(--border);
-}
+  .panel:hover { border-color: var(--border-strong); }
 
-.card-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  color: var(--text);
-}
+  .hairline { border-top: 1px solid var(--border); }
 
-.panel {
-  background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent 60%), var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  transition: border-color 160ms ease;
-}
-.panel:hover { border-color: var(--border-strong); }
+  /* Papier quadrillé — le cahier de l’éditeur, à peine marqué */
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(24, 41, 60, 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(24, 41, 60, 0.055) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 100%);
+  }
 
-.hairline { border-top: 1px solid var(--border); }
+  /* ── Boutons : commande nette, encre pleine ────────────────────── */
 
-/* Grille cartésienne discrète — fond des écrans d’accès et du héros */
-.grid-bg {
-  background-image:
-    linear-gradient(to right, rgba(148,163,184,0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148,163,184,0.05) 1px, transparent 1px);
-  background-size: 46px 46px;
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 100%);
-}
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-sm);
+    padding: 0.58rem 1.05rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.1;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 110ms ease;
+    white-space: nowrap;
+  }
 
-/* ── Boutons ─────────────────────────────────────────────────────── */
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 1rem;
-  font-size: 0.84rem;
-  font-weight: 550;
-  line-height: 1.1;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 110ms ease;
-  white-space: nowrap;
-}
+  /* Le doigt enfonce la commande : retour immédiat, jamais décoratif. */
+  .btn:active:not(:disabled) { transform: scale(0.97); }
 
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fbf9f3;
+    font-weight: 650;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
 
-/* Le doigt enfonce la commande : retour immédiat, jamais décoratif. */
-.btn:active:not(:disabled) { transform: scale(0.97); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--surface);
+    border-color: var(--text);
+  }
 
-.btn-primary {
-  background: var(--accent);
-  color: #04121a;
-  font-weight: 640;
-}
-.btn-primary:hover:not(:disabled) { background: var(--accent-strong); }
+  .btn-danger {
+    background: rgba(168, 48, 36, 0.10);
+    color: var(--danger);
+    border-color: rgba(168, 48, 36, 0.35);
+  }
+  .btn-danger:hover:not(:disabled) { background: rgba(168, 48, 36, 0.18); }
 
-.btn-ghost {
-  background: transparent;
-  color: var(--text);
-  border-color: var(--border-strong);
-}
-.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.05); border-color: rgba(148,163,184,0.34); }
+  .btn-sm { padding: 0.34rem 0.66rem; font-size: 0.78rem; }
 
-.btn-danger {
-  background: rgba(248, 113, 113, 0.12);
-  color: var(--danger);
-  border-color: rgba(248, 113, 113, 0.32);
-}
-.btn-danger:hover:not(:disabled) { background: rgba(248, 113, 113, 0.2); }
+  /* ── Formulaires : champs blancs, filet d’encre ────────────────── */
 
-.btn-sm { padding: 0.34rem 0.66rem; font-size: 0.78rem; }
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
 
-/* ── Formulaires ─────────────────────────────────────────────────── */
+  .input {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.58rem 0.72rem;
+    font-size: 0.88rem;
+    color: var(--text);
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
 
-.field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .input::placeholder { color: var(--text-faint); }
 
-.input {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0.58rem 0.72rem;
-  font-size: 0.88rem;
-  color: var(--text);
-  transition: border-color 140ms ease, box-shadow 140ms ease;
-}
+  .input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
 
-.input::placeholder { color: var(--text-faint); }
+  textarea.input { resize: vertical; min-height: 6rem; font-family: var(--font-mono); font-size: 0.85rem; }
 
-.input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
-}
+  select.input {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234B5C70' d='M6 8.5 2.5 5h7z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    padding-right: 2rem;
+  }
 
-textarea.input { resize: vertical; min-height: 6rem; font-family: var(--font-mono); font-size: 0.85rem; }
+  .form-error {
+    font-size: 0.79rem;
+    color: #8c2a20;
+    background: rgba(168, 48, 36, 0.08);
+    border: 1px solid rgba(168, 48, 36, 0.30);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.7rem;
+  }
 
-select.input {
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239AA8B8' d='M6 8.5 2.5 5h7z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.7rem center;
-  padding-right: 2rem;
-}
+  .form-notice {
+    font-size: 0.79rem;
+    color: #17603c;
+    background: rgba(28, 122, 79, 0.09);
+    border: 1px solid rgba(28, 122, 79, 0.30);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.7rem;
+  }
 
-.form-error {
-  font-size: 0.79rem;
-  color: #fca5a5;
-  background: rgba(248, 113, 113, 0.09);
-  border: 1px solid rgba(248, 113, 113, 0.28);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.7rem;
-}
+  /* ── Dialogue modal (formulaire de règle) ───────────────────────── */
 
-.form-notice {
-  font-size: 0.79rem;
-  color: #6ee7b7;
-  background: rgba(52, 211, 153, 0.08);
-  border: 1px solid rgba(52, 211, 153, 0.25);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.7rem;
-}
+  /* Le <dialog> natif donne gratuitement le piège de focus, Échap et
+     l’inertie du fond : on n’en réécrit que l’habillage. */
+  .rule-dialog {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg-elevated);
+    color: var(--text);
+    padding: 0;
+    width: min(46rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 3rem);
+    overflow: auto;
+    box-shadow: 0 32px 70px -30px rgba(24, 41, 60, 0.45);
+  }
 
-/* ── Dialogue modal (formulaire de règle) ─────────────────────────── */
+  .rule-dialog::backdrop {
+    background: rgba(24, 41, 60, 0.42);
+    backdrop-filter: blur(3px);
+  }
 
-/* Le <dialog> natif donne gratuitement le piège de focus, Échap et
-   l’inertie du fond : on n’en réécrit que l’habillage. */
-.rule-dialog {
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  padding: 0;
-  width: min(46rem, calc(100vw - 2rem));
-  max-height: calc(100vh - 3rem);
-  overflow: auto;
-  box-shadow: 0 32px 70px -30px rgba(0, 0, 0, 0.95);
-}
+  .rule-dialog-body { padding: 1.4rem 1.4rem 1.3rem; }
 
-.rule-dialog::backdrop {
-  background: rgba(3, 6, 8, 0.78);
-  backdrop-filter: blur(3px);
-}
+  /* ── Badges : le cercle tinté porte le sens, le fond reste papier ── */
 
-.rule-dialog-body { padding: 1.4rem 1.4rem 1.3rem; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.18rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
 
-/* ── Badges ──────────────────────────────────────────────────────── */
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    flex: none;
+  }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 999px;
-  padding: 0.18rem 0.6rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
+  /* ── Tableaux : registre comptable, en-tête ombré ───────────────── */
 
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
-  flex: none;
-}
+  table thead tr { background: rgba(24, 41, 60, 0.05); }
 
-/* ── Tableaux ────────────────────────────────────────────────────── */
+  .table-row-hover:hover { background: rgba(24, 41, 60, 0.04); }
 
-/* En-tête : bandeau à peine surélevé, labels en petites capitales. */
-table thead tr { background: rgba(255, 255, 255, 0.022); }
+  /* ── Divers ────────────────────────────────────────────────────── */
 
-.table-row-hover:hover { background: rgba(255,255,255,0.026); }
+  .kbd {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 0.08rem 0.35rem;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+  }
 
-/* ── Divers ──────────────────────────────────────────────────────── */
+  /* Barre de progression — filets seulement, pas de remplissage décoratif */
+  .meter {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .meter > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent);
+    transition: width 650ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 
-.kbd {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  border: 1px solid var(--border-strong);
-  border-bottom-width: 2px;
-  border-radius: 5px;
-  padding: 0.08rem 0.35rem;
-  color: var(--text-muted);
-}
+  /* ── Marques éditoriales ───────────────────────────────────────── */
 
-/* Barre de progression — filets seulement, pas de remplissage décoratif */
-.meter {
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.12);
-  overflow: hidden;
-}
-.meter > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-  transition: width 650ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* Filet double — le repère typographique du journal. */
+  .rule-double { border-top: 4px double var(--text); }
+
+  /* Lettrine — la première lettre du chapô, en serif d’accent. */
+  .drop-cap::first-letter {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    font-size: 3.1em;
+    line-height: 0.8;
+    float: left;
+    padding-right: 0.07em;
+    margin-top: 0.06em;
+    color: var(--accent);
+  }
+
+  /* Exergue — citation détachée entre deux filets. */
+  .pull {
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--text);
+  }
 }
 
 /* ── Animations ──────────────────────────────────────────────────── */
@@ -370,21 +443,13 @@ table thead tr { background: rgba(255, 255, 255, 0.022); }
   position: absolute;
   inset: 0;
   width: 45%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
   animation: shimmer 1.4s linear infinite;
 }
 
 .spinner { animation: spin 700ms linear infinite; }
 
 /* ── Accessibilité ───────────────────────────────────────────────── */
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-::selection { background: rgba(34, 211, 238, 0.3); }
 
 .sr-only {
   position: absolute;
@@ -397,10 +462,10 @@ table thead tr { background: rgba(255, 255, 255, 0.022); }
 }
 
 /* Chrome du défilement, cohérent avec la palette */
-* { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.24) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(24, 41, 60, 0.28) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.2); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.34); }
+::-webkit-scrollbar-thumb { background: rgba(24, 41, 60, 0.26); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(24, 41, 60, 0.42); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

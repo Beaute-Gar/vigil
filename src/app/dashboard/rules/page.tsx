@@ -82,7 +82,7 @@ export default async function RulesPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[0.94rem] font-medium">{r.name}</span>
                         {!r.enabled && (
-                          <span className="badge ring-1 ring-inset bg-zinc-500/15 text-zinc-300 ring-zinc-500/30">
+                          <span className="badge ring-1 ring-inset bg-neutral/15 text-neutral ring-neutral/30">
                             désactivée
                           </span>
                         )}

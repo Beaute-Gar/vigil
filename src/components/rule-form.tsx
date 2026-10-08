@@ -271,7 +271,7 @@ export function RuleFormButton({
               ) : patternProblem ? (
                 <p className="form-error">Expression invalide : elle ne compile pas.</p>
               ) : (
-                <p className="text-[0.76rem] text-emerald-300 leading-snug">
+                <p className="text-[0.76rem] text-ok leading-snug">
                   Expression valide.
                 </p>
               )}
@@ -377,9 +377,9 @@ export function RuleFormButton({
                   className={[
                     'text-[0.79rem] leading-snug mt-1',
                     preview.invalidRules.length > 0
-                      ? 'text-rose-300'
+                      ? 'text-danger'
                       : preview.matches.length > 0
-                        ? 'text-emerald-300'
+                        ? 'text-ok'
                         : 'faint',
                   ].join(' ')}
                 >

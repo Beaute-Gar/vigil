@@ -95,7 +95,7 @@ export function Sidebar() {
               'flex items-center gap-3 mx-2 px-3 py-2.5 text-[0.86rem] rounded-[var(--radius-sm)] border-l-2 transition-colors',
               active
                 ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-dim)] font-medium'
-                : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/[0.04]',
+                : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface)]',
             ].join(' ')}
           >
             <Icon name={item.icon} />

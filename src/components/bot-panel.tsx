@@ -53,23 +53,23 @@ const NODE_LABEL: Record<BotNodeStatus, string> = {
 };
 
 const NODE_TONE: Record<BotNodeStatus, string> = {
-  online: 'text-emerald-400',
-  offline: 'text-zinc-500',
-  stale: 'text-amber-400',
+  online: 'text-ok',
+  offline: 'text-neutral',
+  stale: 'text-warn',
 };
 
 const NODE_BADGE: Record<BotNodeStatus, string> = {
-  online: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
-  offline: 'bg-zinc-500/15 text-zinc-300 ring-zinc-500/30',
-  stale: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+  online: 'bg-ok/15 text-ok ring-ok/30',
+  offline: 'bg-neutral/15 text-neutral ring-neutral/30',
+  stale: 'bg-warn/15 text-warn ring-warn/30',
 };
 
 const KIND_TONE: Record<BotCommandKind, string> = {
-  pairing: 'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',
-  qr: 'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',
-  status: 'bg-zinc-500/15 text-zinc-300 ring-zinc-500/30',
-  stop: 'bg-red-500/15 text-red-400 ring-red-500/40',
-  raw: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+  pairing: 'bg-accent/15 text-accent ring-accent/30',
+  qr: 'bg-accent/15 text-accent ring-accent/30',
+  status: 'bg-neutral/15 text-neutral ring-neutral/30',
+  stop: 'bg-danger/15 text-danger ring-danger/40',
+  raw: 'bg-warn/15 text-warn ring-warn/30',
 };
 
 const COMMAND_LABEL: Record<BotCommandStatus, string> = {
@@ -80,10 +80,10 @@ const COMMAND_LABEL: Record<BotCommandStatus, string> = {
 };
 
 const COMMAND_TONE: Record<BotCommandStatus, string> = {
-  pending: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
-  running: 'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30',
-  done: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
-  failed: 'bg-red-500/15 text-red-400 ring-red-500/40',
+  pending: 'bg-warn/15 text-warn ring-warn/30',
+  running: 'bg-accent/15 text-accent ring-accent/30',
+  done: 'bg-ok/15 text-ok ring-ok/30',
+  failed: 'bg-danger/15 text-danger ring-danger/40',
 };
 
 const isLive = (status: BotCommandStatus) => status === 'pending' || status === 'running';
@@ -416,10 +416,10 @@ export function BotPanel({ node, commands, now: serverNow }: Props) {
                 </>
               ) : qrFailure ? (
                 <div
-                  className="grid h-40 place-items-center rounded-[var(--radius-sm)] border border-red-500/30 bg-red-500/[0.07] px-4 text-center"
+                  className="grid h-40 place-items-center rounded-[var(--radius-sm)] border border-danger/30 bg-danger/[0.07] px-4 text-center"
                   role="alert"
                 >
-                  <span className="text-[0.82rem] leading-relaxed text-red-300">
+                  <span className="text-[0.82rem] leading-relaxed text-danger">
                     {qrFailure}
                     <span className="block faint text-[0.76rem] mt-1.5">
                       Redemandez un QR une fois le bot relancé.
@@ -567,7 +567,7 @@ export function BotPanel({ node, commands, now: serverNow }: Props) {
             title="Commande libre"
             hint="La saisie part telle quelle, préfixe compris"
             action={
-              <span className="badge mono ring-1 ring-inset bg-white/[0.03] text-[var(--text-muted)] ring-[var(--border-strong)]">
+              <span className="badge mono ring-1 ring-inset bg-[var(--surface)] text-[var(--text-muted)] ring-[var(--border-strong)]">
                 kind: raw
               </span>
             }
@@ -601,7 +601,7 @@ export function BotPanel({ node, commands, now: serverNow }: Props) {
               </button>
             </form>
 
-            <p className="mt-3 text-[0.78rem] leading-relaxed text-amber-300/85">
+            <p className="mt-3 text-[0.78rem] leading-relaxed text-warn/90">
               ⚠ Cette commande s’exécute réellement sur le bot : elle modifie son comportement en
               direct. Sans réponse sous 60 s, elle bascule en <strong>échec</strong>.
             </p>
@@ -651,7 +651,7 @@ export function BotPanel({ node, commands, now: serverNow }: Props) {
                         {c.result && (
                           <div
                             className={`mt-1 text-[0.77rem] line-clamp-2 leading-snug ${
-                              c.status === 'failed' ? 'text-red-300/90' : 'muted'
+                              c.status === 'failed' ? 'text-danger/90' : 'muted'
                             }`}
                             title={c.result}
                           >

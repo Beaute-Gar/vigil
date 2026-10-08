@@ -36,7 +36,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           </Link>
 
           <div className="flex items-center gap-3 min-w-0">
-            <span className="hidden md:block badge mono ring-1 ring-inset bg-white/[0.03] text-[var(--text-muted)] ring-[var(--border-strong)]">
+            <span className="hidden md:block badge mono ring-1 ring-inset bg-[var(--surface)] text-[var(--text-muted)] ring-[var(--border-strong)]">
               console · espace djousse
             </span>
 
