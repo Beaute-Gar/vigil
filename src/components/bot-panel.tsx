@@ -10,6 +10,7 @@ import type {
   BotNodeStatus,
 } from '@/db/schema';
 import { formatLastSeen, formatLogTime, formatUptime } from '@/lib/bot-format';
+import { QrImage } from '@/components/qr-image';
 
 /** Identité stable : sans elle, `?? []` re-crée un tableau à chaque rendu. */
 const NO_LOGS: BotLogLine[] = [];
@@ -403,9 +404,9 @@ export function BotPanel({ node, commands, now: serverNow }: Props) {
                       className="h-40 w-40 rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-2"
                     />
                   ) : (
-                    <pre className="mono max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-3 text-[0.75rem] leading-relaxed text-[var(--text-muted)]">
-                      {qr}
-                    </pre>
+                    // chaîne brute (Baileys) → SVG scannable, repli texte si
+                    // l'encodage échoue : jamais un mur de texte non scannable
+                    <QrImage value={qr} />
                   )}
                   {qrFailure && (
                     <p className="form-error mt-3" role="alert">

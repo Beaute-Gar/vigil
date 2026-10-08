@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Diagnostics ponctuels `_check_*` : scripts jetables exécutés à la
+    // main pour inspecter env/base, jamais importés ni déployés.
+    "scripts/_check_*",
   ]),
 ]);
 
